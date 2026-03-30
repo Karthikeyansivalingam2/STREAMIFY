@@ -6,7 +6,7 @@ import MediaCard from './components/MediaCard';
 import AudioPlayer from './components/AudioPlayer';
 import VideoModal from './components/VideoModal';
 
-const API_URL = 'http://localhost:5000/api';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 function App() {
   const [activeTab, setActiveTab] = useState('home');
@@ -235,16 +235,16 @@ function App() {
             <h1>Start Your Journey</h1>
             
             <div style={{ marginBottom: '3rem' }}>
-               <div className="glass" style={{ padding: '3rem', borderRadius: '24px', background: 'linear-gradient(135deg, var(--primary), var(--secondary))', border: 'none', position: 'relative', overflow: 'hidden' }}>
+               <div className="glass banner-hero" style={{ padding: '2rem', borderRadius: '24px', background: 'linear-gradient(135deg, var(--primary), var(--secondary))', border: 'none', position: 'relative', overflow: 'hidden' }}>
                     <div style={{ position: 'relative', zIndex: 2 }}>
-                        <h2 style={{ fontSize: '2.5rem', fontWeight: 800, marginBottom: '1rem' }}>Stream Your Favorites</h2>
-                        <p style={{ opacity: 0.9, fontSize: '1.1rem', maxWidth: '500px', marginBottom: '2rem' }}>Discover thousands of songs and movies in one place. Your perfect entertainment companion.</p>
-                        <div style={{ display: 'flex', gap: '1rem' }}>
-                            <button onClick={() => setActiveTab('music')} style={{ padding: '1rem 2rem', borderRadius: '50px', background: 'white', color: 'black', border: 'none', fontWeight: 700, cursor: 'pointer' }}>Explore Music</button>
-                            <button onClick={() => setActiveTab('drive')} style={{ padding: '1rem 2rem', borderRadius: '50px', background: 'rgba(255,255,255,0.2)', color: 'white', border: '1px solid rgba(255,255,255,0.4)', fontWeight: 700, cursor: 'pointer' }}>My Local Drive</button>
+                        <h2 className="banner-title" style={{ fontWeight: 800, marginBottom: '1rem' }}>Stream Your Favorites</h2>
+                        <p style={{ opacity: 0.9, fontSize: '1rem', maxWidth: '500px', marginBottom: '2rem' }}>Discover thousands of songs and movies in one place. Your perfect entertainment companion.</p>
+                        <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+                            <button onClick={() => setActiveTab('music')} style={{ padding: '0.8rem 1.5rem', borderRadius: '50px', background: 'white', color: 'black', border: 'none', fontWeight: 700, cursor: 'pointer' }}>Explore Music</button>
+                            <button onClick={() => setActiveTab('drive')} style={{ padding: '0.8rem 1.5rem', borderRadius: '50px', background: 'rgba(255,255,255,0.2)', color: 'white', border: '1px solid rgba(255,255,255,0.4)', fontWeight: 700, cursor: 'pointer' }}>My Local Drive</button>
                         </div>
                     </div>
-                    <div style={{ position: 'absolute', right: '-10%', top: '-20%', width: '300px', height: '300px', background: 'white', opacity: 0.1, borderRadius: '50%' }}></div>
+                    <div className="banner-circle" style={{ position: 'absolute', right: '-10%', top: '-20%', width: '200px', height: '200px', background: 'white', opacity: 0.1, borderRadius: '50%' }}></div>
                </div>
             </div>
 

@@ -54,10 +54,13 @@ function App() {
         axios.get(`${API_URL}/songs`),
         axios.get(`${API_URL}/movies`)
       ]);
-      setSongs(songsRes.data);
-      setMovies(moviesRes.data);
+      setSongs(songsRes.data || []);
+      setMovies(moviesRes.data || []);
     } catch (err) {
       console.error('Error fetching data:', err);
+      // Ensure arrays are empty but app still renders
+      setSongs([]);
+      setMovies([]);
     } finally {
       setLoading(false);
     }

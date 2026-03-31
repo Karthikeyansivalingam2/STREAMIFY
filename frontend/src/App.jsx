@@ -29,6 +29,9 @@ function App() {
   const [selectedGenre, setSelectedGenre] = useState('All');
   const [isShuffle, setIsShuffle] = useState(false);
   const [isRepeat, setIsRepeat] = useState(false);
+  const [discoverResults, setDiscoverResults] = useState([]);
+  const [isDiscovering, setIsDiscovering] = useState(false);
+
 
   useEffect(() => {
     localStorage.setItem('streamify-favorites', JSON.stringify(favorites));
@@ -202,7 +205,32 @@ function App() {
     }
   };
 
+  const handleGlobalSearch = async (query) => {
+    if (!query || query.length < 3) return;
+    setIsDiscovering(true);
+    try {
+        const res = await axios.get(`https://saavn.dev/api/search/songs?query=${query}`);
+        if (res.data.success && res.data.data.results) {
+            const formatted = res.data.data.results.map(item => ({
+                _id: item.id,
+                title: item.name,
+                artist: item.artists.primary[0]?.name || "Unknown",
+                image: item.image[item.image.length-1]?.url || item.image[0]?.url,
+                url: item.downloadUrl[item.downloadUrl.length-1]?.url || item.downloadUrl[0]?.url,
+                category: 'Discover'
+            }));
+            setDiscoverResults(formatted);
+            if (activeTab !== 'discover') setActiveTab('discover');
+        }
+    } catch (err) {
+        console.error("Discovery error", err);
+    } finally {
+        setIsDiscovering(false);
+    }
+  };
+
   const toggleLike = (songId) => {
+
     setFavorites(prev => 
         prev.includes(songId) ? prev.filter(id => id !== songId) : [...prev, songId]
     );
@@ -259,8 +287,15 @@ function App() {
               placeholder="Search for music, movies, artists..." 
               className="search-input"
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => {
+                  setSearchTerm(e.target.value);
+                  if (activeTab === 'discover') handleGlobalSearch(e.target.value);
+              }}
+              onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleGlobalSearch(searchTerm);
+              }}
               style={{ maxWidth: 'none' }}
+
             />
           </div>
           {isInstallable && (
@@ -356,6 +391,43 @@ function App() {
             )}
           </section>
         )}
+
+        {activeTab === 'discover' && (
+          <section>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+                <div>
+                    <h1>Online Music Search</h1>
+                    <p style={{ color: 'var(--text-muted)' }}>Found on Global Music Library. Stream anything for free!</p>
+                </div>
+            </div>
+
+            <div className="media-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))' }}>
+              {discoverResults.length > 0 ? (
+                discoverResults.map(song => (
+                <MediaCard 
+                    key={song._id} 
+                    item={song} 
+                    type="music" 
+                    onClick={setCurrentSong} 
+                    isLiked={favorites.includes(song._id)}
+                    onLike={() => toggleLike(song._id)}
+                />
+              ))
+              ) : isDiscovering ? (
+                <div style={{ textAlign: 'center', gridColumn: 'span 4', padding: '5rem' }}>
+                    <div className="spinner" style={{ width: '40px', height: '40px', border: '4px solid var(--glass-border)', borderTopColor: 'var(--primary)', borderRadius: '50%', animation: 'spin 1s linear infinite', margin: '0 auto 1rem' }}></div>
+                    <p>Searching worldwide...</p>
+                </div>
+              ) : (
+                <div className="glass" style={{ padding: '5rem', textAlign: 'center', gridColumn: 'span 4', opacity: 0.5 }}>
+                    <Search size={48} style={{ marginBottom: '1.5rem' }} />
+                    <h2>Type and press Enter to search Spotify Music!</h2>
+                </div>
+              )}
+            </div>
+          </section>
+        )}
+
 
         {activeTab === 'drive' && (
           <section>

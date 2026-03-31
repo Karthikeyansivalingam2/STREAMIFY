@@ -1,7 +1,8 @@
-const CACHE_NAME = 'streamify-v1';
+const CACHE_NAME = 'streamify-v2';
 const urlsToCache = [
   '/',
-  '/index.html'
+  '/index.html',
+  '/favicon.svg'
 ];
 
 self.addEventListener('install', event => {
@@ -10,36 +11,49 @@ self.addEventListener('install', event => {
       .then(cache => {
         return cache.addAll(urlsToCache);
       })
-  );
-});
-
-self.addEventListener('fetch', event => {
-  event.respondWith(
-    caches.match(event.request)
-      .then(response => {
-        // Cache hit - return response
-        if (response) {
-          return response;
-        }
-        return fetch(event.request).catch(() => {
-          // If fetch fails (e.g. offline), return cached offline page or nothing
-        });
-      }
-    )
+      .then(() => self.skipWaiting())
   );
 });
 
 self.addEventListener('activate', event => {
-  const cacheWhitelist = [CACHE_NAME];
   event.waitUntil(
     caches.keys().then(cacheNames => {
       return Promise.all(
         cacheNames.map(cacheName => {
-          if (cacheWhitelist.indexOf(cacheName) === -1) {
+          if (cacheName !== CACHE_NAME) {
             return caches.delete(cacheName);
           }
         })
       );
-    })
+    }).then(() => self.clients.claim())
   );
 });
+
+self.addEventListener('fetch', event => {
+  // Navigation request (HTML) - Network First
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      fetch(event.request).catch(() => caches.match('/index.html'))
+    );
+    return;
+  }
+
+  // Assets/Images - Cache First with Network Fallback
+  event.respondWith(
+    caches.match(event.request)
+      .then(response => {
+        return response || fetch(event.request).then(fetchResponse => {
+            // Don't cache API calls
+            if (event.request.url.includes('/api/')) return fetchResponse;
+            
+            return caches.open(CACHE_NAME).then(cache => {
+                cache.put(event.request, fetchResponse.clone());
+                return fetchResponse;
+            });
+        });
+      }).catch(() => {
+          // Silent fail for non-essential assets
+      })
+  );
+});
+

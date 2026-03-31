@@ -39,9 +39,15 @@ const upload = multer({ storage: storage });
 // --- UPLOAD ROUTE ---
 app.post('/api/upload', upload.single('file'), (req, res) => {
   if (!req.file) return res.status(400).json({ message: 'No file uploaded' });
-  const fileUrl = `http://localhost:${PORT}/uploads/${req.file.filename}`;
+  
+  // Dynamic URL based on where the backend is hosted
+  const protocol = req.protocol;
+  const host = req.get('host');
+  const fileUrl = `${protocol}://${host}/uploads/${req.file.filename}`;
+  
   res.json({ url: fileUrl });
 });
+
 
 // MongoDB Connection
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/Watchify';

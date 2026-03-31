@@ -80,15 +80,22 @@ function App() {
     if (!file) return null;
     const formData = new FormData();
     formData.append('file', file);
+    
+    // Debug Log: Let's see what URL we are hitting
+    console.log("Attempting upload to:", `${API_URL}/upload`);
+
     try {
       const res = await axios.post(`${API_URL}/upload`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
       return res.data.url;
     } catch (err) {
-      throw new Error("File upload failed");
+      console.error("Upload error detail:", err.response || err);
+      const errorMsg = err.response?.data?.message || err.message || "Unknown Error";
+      throw new Error(`Upload failed: ${errorMsg}`);
     }
   };
+
 
   const extractMetadata = (file) => {
     return new Promise((resolve) => {
@@ -345,8 +352,9 @@ function App() {
                             alert('Song uploaded to your library!');
                             setShowAddMusic(false);
                             fetchData();
-                        } catch (err) { alert('Failed to upload track'); }
+                        } catch (err) { alert(err.message); }
                         finally { setLoading(false); }
+
                     }} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
                         <input name="title" id="song-title-input" placeholder="Song Title" className="search-input" style={{ maxWidth: 'none' }} required />
                         <input name="artist" id="song-artist-input" placeholder="Artist Name" className="search-input" style={{ maxWidth: 'none' }} required />

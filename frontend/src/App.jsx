@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Search, Music, Film, Plus, Play, HardDrive } from 'lucide-react';
+import { Search, Music, Film, Plus, Play, HardDrive, Heart } from 'lucide-react';
+
 import Sidebar from './components/Sidebar';
 import MediaCard from './components/MediaCard';
 import AudioPlayer from './components/AudioPlayer';

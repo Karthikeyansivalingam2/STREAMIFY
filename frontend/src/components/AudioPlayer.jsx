@@ -34,12 +34,17 @@ const AudioPlayer = ({ currentSong, songs, onNext, onPrev, isShuffle, setIsShuff
   };
 
   const handleSeek = (e) => {
+    if (!audioRef.current || !audioRef.current.duration) return;
     const width = e.target.clientWidth;
     const rect = e.target.getBoundingClientRect();
     const clickX = e.clientX - rect.left;
     const duration = audioRef.current.duration;
-    audioRef.current.currentTime = (clickX / width) * duration;
+    const newTime = (clickX / width) * duration;
+    if (isFinite(newTime)) {
+        audioRef.current.currentTime = newTime;
+    }
   };
+
 
   const formatTime = (time) => {
     if (!time) return "0:00";

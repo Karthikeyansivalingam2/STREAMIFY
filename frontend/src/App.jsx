@@ -215,9 +215,12 @@ function App() {
     const backupApi = `https://saavn.me/api/search/songs?query=${query}`;
 
     const attemptFetch = async (url) => {
-      const res = await axios.get(url);
-      if (res.data.success && res.data.data.results) {
-          return res.data.data.results.map(item => ({
+      // Use a CORS proxy to ensure it works on localhost too
+      const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
+      const res = await axios.get(proxyUrl);
+      const data = JSON.parse(res.data.contents);
+      if (data.success && data.data.results) {
+          return data.data.results.map(item => ({
               _id: item.id,
               title: item.name,
               artist: item.artists.primary[0]?.name || "Unknown",
@@ -228,6 +231,7 @@ function App() {
       }
       return null;
     };
+
 
     try {
         let results = await attemptFetch(primaryApi);

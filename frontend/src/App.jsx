@@ -81,10 +81,11 @@ function App() {
     const formData = new FormData();
     formData.append('file', file);
     
-    // Debug Log: Let's see what URL we are hitting
-    console.log("Attempting upload to:", `${API_URL}/upload`);
+    // Debug Alert: Let's see exactly what Vercel thinks the link is
+    alert("Target URL: " + `${API_URL}/upload`);
 
     try {
+
       const res = await axios.post(`${API_URL}/upload`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });

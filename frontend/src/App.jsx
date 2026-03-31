@@ -221,10 +221,14 @@ function App() {
             }));
             setDiscoverResults(formatted);
             if (activeTab !== 'discover') setActiveTab('discover');
+        } else {
+            alert("No results found for '" + query + "'. Try another name!");
         }
     } catch (err) {
         console.error("Discovery error", err);
+        alert("Server error. Please try again later!");
     } finally {
+
         setIsDiscovering(false);
     }
   };
@@ -280,24 +284,29 @@ function App() {
       
       <main className="main-content">
         <div className="search-container" style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-          <div style={{ position: 'relative', flex: 1 }}>
-            <Search size={20} className="search-icon" />
-            <input 
-              type="text" 
-              placeholder="Search for music, movies, artists..." 
-              className="search-input"
-              value={searchTerm}
-              onChange={(e) => {
-                  setSearchTerm(e.target.value);
-                  if (activeTab === 'discover') handleGlobalSearch(e.target.value);
-              }}
-              onKeyDown={(e) => {
-                  if (e.key === 'Enter') handleGlobalSearch(searchTerm);
-              }}
-              style={{ maxWidth: 'none' }}
-
-            />
+          <div style={{ position: 'relative', flex: 1, display: 'flex', gap: '0.5rem' }}>
+            <div style={{ position: 'relative', flex: 1 }}>
+                <Search size={20} className="search-icon" />
+                <input 
+                  type="text" 
+                  placeholder={activeTab === 'discover' ? "Search 100 Million+ Songs Globally..." : "Search locally..."}
+                  className="search-input"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleGlobalSearch(searchTerm);
+                  }}
+                  style={{ maxWidth: 'none' }}
+                />
+            </div>
+            <button 
+                onClick={() => handleGlobalSearch(searchTerm)}
+                style={{ padding: '0.8rem 1.5rem', borderRadius: '50px', background: 'var(--primary)', color: 'white', border: 'none', fontWeight: 600, cursor: 'pointer' }}
+            >
+                Search
+            </button>
           </div>
+
           {isInstallable && (
              <button 
                  onClick={handleInstallClick}

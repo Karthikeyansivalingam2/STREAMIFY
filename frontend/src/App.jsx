@@ -208,30 +208,53 @@ function App() {
   const handleGlobalSearch = async (query) => {
     if (!query || query.length < 3) return;
     setIsDiscovering(true);
+    
+    // Primary API
+    const primaryApi = `https://saavn.dev/api/search/songs?query=${query}`;
+    // Backup API
+    const backupApi = `https://saavn.me/api/search/songs?query=${query}`;
+
+    const attemptFetch = async (url) => {
+      const res = await axios.get(url);
+      if (res.data.success && res.data.data.results) {
+          return res.data.data.results.map(item => ({
+              _id: item.id,
+              title: item.name,
+              artist: item.artists.primary[0]?.name || "Unknown",
+              image: item.image[item.image.length-1]?.url || item.image[0]?.url,
+              url: item.downloadUrl[item.downloadUrl.length-1]?.url || item.downloadUrl[0]?.url,
+              category: 'Discover'
+          }));
+      }
+      return null;
+    };
+
     try {
-        const res = await axios.get(`https://saavn.dev/api/search/songs?query=${query}`);
-        if (res.data.success && res.data.data.results) {
-            const formatted = res.data.data.results.map(item => ({
-                _id: item.id,
-                title: item.name,
-                artist: item.artists.primary[0]?.name || "Unknown",
-                image: item.image[item.image.length-1]?.url || item.image[0]?.url,
-                url: item.downloadUrl[item.downloadUrl.length-1]?.url || item.downloadUrl[0]?.url,
-                category: 'Discover'
-            }));
-            setDiscoverResults(formatted);
+        let results = await attemptFetch(primaryApi);
+        if (!results) results = await attemptFetch(backupApi);
+
+        if (results) {
+            setDiscoverResults(results);
             if (activeTab !== 'discover') setActiveTab('discover');
         } else {
-            alert("No results found for '" + query + "'. Try another name!");
+            alert("No results found. Try a more specific song name!");
         }
     } catch (err) {
         console.error("Discovery error", err);
-        alert("Server error. Please try again later!");
+        // Last ditch try with backup if the first threw an error
+        try {
+            const results = await attemptFetch(backupApi);
+            if (results) {
+                setDiscoverResults(results);
+                return;
+            }
+        } catch (e) {}
+        alert("Music servers are busy. Please try again in 5 seconds!");
     } finally {
-
         setIsDiscovering(false);
     }
   };
+
 
   const toggleLike = (songId) => {
 

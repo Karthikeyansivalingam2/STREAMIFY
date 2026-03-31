@@ -1,5 +1,6 @@
 import React from 'react';
-import { Home, Music, Film, Plus, Settings, HardDrive } from 'lucide-react';
+import { Home, Music, Film, Plus, Settings, HardDrive, Heart } from 'lucide-react';
+
 
 const Sidebar = ({ activeTab, setActiveTab }) => {
   const menuItems = [
@@ -7,7 +8,10 @@ const Sidebar = ({ activeTab, setActiveTab }) => {
     { id: 'music', icon: <Music size={20} />, label: 'Music' },
     { id: 'movies', icon: <Film size={20} />, label: 'Movies' },
     { id: 'drive', icon: <HardDrive size={20} />, label: 'My Drive' },
+    { id: 'liked', icon: <Heart size={20} style={{ color: 'var(--secondary)' }} />, label: 'Liked Songs' },
+
   ];
+
 
   return (
     <div className="sidebar">

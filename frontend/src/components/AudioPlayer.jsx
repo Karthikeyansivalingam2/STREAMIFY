@@ -1,7 +1,7 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { Play, Pause, SkipBack, SkipForward, Volume2, Maximize2 } from 'lucide-react';
+import { Play, Pause, SkipBack, SkipForward, Volume2, Maximize2, Shuffle, Repeat } from 'lucide-react';
 
-const AudioPlayer = ({ currentSong, songs, onNext, onPrev }) => {
+const AudioPlayer = ({ currentSong, songs, onNext, onPrev, isShuffle, setIsShuffle, isRepeat, setIsRepeat }) => {
   const audioRef = useRef(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -25,6 +25,7 @@ const AudioPlayer = ({ currentSong, songs, onNext, onPrev }) => {
   };
 
   const handleTimeUpdate = () => {
+    if (!audioRef.current) return;
     const current = audioRef.current.currentTime;
     const dur = audioRef.current.duration;
     setCurrentTime(current);
@@ -34,7 +35,8 @@ const AudioPlayer = ({ currentSong, songs, onNext, onPrev }) => {
 
   const handleSeek = (e) => {
     const width = e.target.clientWidth;
-    const clickX = e.nativeEvent.offsetX;
+    const rect = e.target.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
     const duration = audioRef.current.duration;
     audioRef.current.currentTime = (clickX / width) * duration;
   };
@@ -54,40 +56,79 @@ const AudioPlayer = ({ currentSong, songs, onNext, onPrev }) => {
         ref={audioRef} 
         onTimeUpdate={handleTimeUpdate} 
         onEnded={onNext}
+        onPlay={() => setIsPlaying(true)}
+        onPause={() => setIsPlaying(false)}
       />
       
       <div className="player-info">
-        <img src={currentSong.image} alt={currentSong.title} className="player-thumb" />
+        <div style={{ position: 'relative' }}>
+            <img 
+                src={currentSong.image} 
+                alt={currentSong.title} 
+                className={`player-thumb ${isPlaying ? 'rotating' : ''}`} 
+                style={{ borderRadius: '50%', border: '2px solid var(--primary)' }}
+            />
+            <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: '10px', height: '10px', background: 'var(--background)', borderRadius: '50%', border: '1px solid var(--primary)' }}></div>
+        </div>
         <div>
-          <div className="card-title" style={{ maxWidth: '200px' }}>{currentSong.title}</div>
-          <div className="card-subtitle">{currentSong.artist}</div>
+          <div className="card-title" style={{ maxWidth: '200px', fontSize: '0.9rem' }}>{currentSong.title}</div>
+          <div className="card-subtitle" style={{ fontSize: '0.8rem' }}>{currentSong.artist}</div>
         </div>
       </div>
 
       <div className="player-controls">
         <div className="control-buttons">
-          <button className="control-btn" onClick={onPrev}><SkipBack size={20} /></button>
-          <button className="control-btn play" onClick={togglePlay}>
-            {isPlaying ? <Pause size={20} fill="currentColor" /> : <Play size={20} fill="currentColor" />}
+          <button 
+            className={`control-btn ${isShuffle ? 'active-loop' : ''}`} 
+            onClick={() => setIsShuffle(!isShuffle)}
+            style={{ color: isShuffle ? 'var(--primary)' : 'var(--text-muted)' }}
+          >
+            <Shuffle size={18} />
           </button>
+          
+          <button className="control-btn" onClick={onPrev}><SkipBack size={20} /></button>
+          
+          <button className="control-btn play" onClick={togglePlay} style={{ width: '45px', height: '45px' }}>
+            {isPlaying ? <Pause size={22} fill="currentColor" /> : <Play size={22} fill="currentColor" />}
+          </button>
+          
           <button className="control-btn" onClick={onNext}><SkipForward size={20} /></button>
+          
+          <button 
+            className={`control-btn ${isRepeat ? 'active-loop' : ''}`} 
+            onClick={() => setIsRepeat(!isRepeat)}
+            style={{ color: isRepeat ? 'var(--primary)' : 'var(--text-muted)' }}
+          >
+            <Repeat size={18} />
+          </button>
         </div>
         
         <div className="progress-container">
-          <span>{formatTime(currentTime)}</span>
+          <span style={{ minWidth: '35px' }}>{formatTime(currentTime)}</span>
           <div className="progress-bar" onClick={handleSeek}>
             <div className="progress-fill" style={{ width: `${progress}%` }}></div>
           </div>
-          <span>{formatTime(duration)}</span>
+          <span style={{ minWidth: '35px' }}>{formatTime(duration)}</span>
         </div>
       </div>
 
-      <div className="player-info" style={{ justifyContent: 'flex-end', width: '200px' }}>
+      <div className="player-info mobile-hide-volume" style={{ justifyContent: 'flex-end', width: '200px' }}>
         <button className="control-btn"><Volume2 size={20} /></button>
         <button className="control-btn"><Maximize2 size={20} /></button>
       </div>
+
+      <style>{`
+        .rotating { animation: rotate 10s linear infinite; }
+        @keyframes rotate { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        @media (max-width: 600px) {
+            .mobile-hide-volume { display: none !important; }
+            .player-bar { padding: 0.5rem; gap: 0.5rem; }
+            .control-buttons { gap: 1rem; }
+        }
+      `}</style>
     </div>
   );
 };
 
 export default AudioPlayer;
+

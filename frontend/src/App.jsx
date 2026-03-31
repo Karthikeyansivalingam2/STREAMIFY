@@ -24,6 +24,15 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [deferredPrompt, setDeferredPrompt] = useState(null);
   const [isInstallable, setIsInstallable] = useState(false);
+  const [favorites, setFavorites] = useState(() => JSON.parse(localStorage.getItem('streamify-favorites') || '[]'));
+  const [selectedGenre, setSelectedGenre] = useState('All');
+  const [isShuffle, setIsShuffle] = useState(false);
+  const [isRepeat, setIsRepeat] = useState(false);
+
+  useEffect(() => {
+    localStorage.setItem('streamify-favorites', JSON.stringify(favorites));
+  }, [favorites]);
+
 
   useEffect(() => {
     fetchData();
@@ -192,12 +201,27 @@ function App() {
     }
   };
 
+  const toggleLike = (songId) => {
+    setFavorites(prev => 
+        prev.includes(songId) ? prev.filter(id => id !== songId) : [...prev, songId]
+    );
+  };
+
   const handleNext = () => {
     const list = currentSong?.isLocal ? localDriveMedia.filter(m => m.category === 'music') : songs;
+    if (isShuffle && list.length > 1) {
+        let nextIdx;
+        do { nextIdx = Math.floor(Math.random() * list.length); } 
+        while (list[nextIdx]._id === currentSong?._id);
+        setCurrentSong(list[nextIdx]);
+        return;
+    }
     const idx = list.findIndex(s => s._id === currentSong?._id);
     if (idx < list.length - 1) setCurrentSong(list[idx + 1]);
-    else setCurrentSong(list[0]);
+    else if (isRepeat) setCurrentSong(list[0]);
+    else setCurrentSong(null); // Stop at end if not repeating
   };
+
 
   const handlePrev = () => {
     const list = currentSong?.isLocal ? localDriveMedia.filter(m => m.category === 'music') : songs;
@@ -206,15 +230,20 @@ function App() {
     else setCurrentSong(list[list.length - 1]);
   };
 
-  const filteredSongs = songs.filter(s => 
-    s.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    s.artist.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredSongs = (activeTab === 'liked' ? songs.filter(s => favorites.includes(s._id)) : songs)
+    .filter(s => 
+        (s.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
+        s.artist.toLowerCase().includes(searchTerm.toLowerCase())) &&
+        (selectedGenre === 'All' || s.category === selectedGenre.toLowerCase())
+    );
 
   const filteredMovies = movies.filter(m => 
     m.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
     m.category.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const genres = ['All', 'Pop', 'Rock', 'Jazz', 'Lo-Fi', 'Classical'];
+
 
   return (
     <div className="app-container">
@@ -243,47 +272,87 @@ function App() {
           )}
         </div>
 
-        {activeTab === 'home' && (
-          <section>
-            <h1>Start Your Journey</h1>
-            
-            <div style={{ marginBottom: '3rem' }}>
-               <div className="glass banner-hero" style={{ padding: '2rem', borderRadius: '24px', background: 'linear-gradient(135deg, var(--primary), var(--secondary))', border: 'none', position: 'relative', overflow: 'hidden' }}>
-                    <div style={{ position: 'relative', zIndex: 2 }}>
-                        <h2 className="banner-title" style={{ fontWeight: 800, marginBottom: '1rem' }}>Stream Your Favorites</h2>
-                        <p style={{ opacity: 0.9, fontSize: '1rem', maxWidth: '500px', marginBottom: '2rem' }}>Discover thousands of songs and movies in one place. Your perfect entertainment companion.</p>
-                        <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-                            <button onClick={() => setActiveTab('music')} style={{ padding: '0.8rem 1.5rem', borderRadius: '50px', background: 'white', color: 'black', border: 'none', fontWeight: 700, cursor: 'pointer' }}>Explore Music</button>
-                            <button onClick={() => setActiveTab('drive')} style={{ padding: '0.8rem 1.5rem', borderRadius: '50px', background: 'rgba(255,255,255,0.2)', color: 'white', border: '1px solid rgba(255,255,255,0.4)', fontWeight: 700, cursor: 'pointer' }}>My Local Drive</button>
-                        </div>
-                    </div>
-                    <div className="banner-circle" style={{ position: 'absolute', right: '-10%', top: '-20%', width: '200px', height: '200px', background: 'white', opacity: 0.1, borderRadius: '50%' }}></div>
-               </div>
+        {/* Genre Selector */}
+        {(activeTab === 'home' || activeTab === 'music') && (
+            <div style={{ display: 'flex', gap: '0.8rem', marginBottom: '2rem', overflowX: 'auto', paddingBottom: '0.5rem' }}>
+                {genres.map(genre => (
+                    <button 
+                        key={genre}
+                        onClick={() => setSelectedGenre(genre)}
+                        style={{ 
+                            padding: '0.6rem 1.5rem', 
+                            borderRadius: '50px', 
+                            background: selectedGenre === genre ? 'var(--primary)' : 'var(--surface)', 
+                            color: 'white', 
+                            border: '1px solid var(--glass-border)', 
+                            cursor: 'pointer',
+                            whiteSpace: 'nowrap',
+                            transition: 'var(--transition)'
+                        }}
+                    >
+                        {genre}
+                    </button>
+                ))}
             </div>
+        )}
+
+        {(activeTab === 'home' || activeTab === 'liked') && (
+          <section>
+            <h1>{activeTab === 'home' ? 'Start Your Journey' : 'Your Favorites'}</h1>
+            
+            {activeTab === 'home' && (
+                <div style={{ marginBottom: '3rem' }}>
+                   <div className="glass banner-hero" style={{ padding: '2rem', borderRadius: '24px', background: 'linear-gradient(135deg, var(--primary), var(--secondary))', border: 'none', position: 'relative', overflow: 'hidden' }}>
+                        <div style={{ position: 'relative', zIndex: 2 }}>
+                            <h2 className="banner-title" style={{ fontWeight: 800, marginBottom: '1rem' }}>Stream Your Favorites</h2>
+                            <p style={{ opacity: 0.9, fontSize: '1rem', maxWidth: '500px', marginBottom: '2rem' }}>Discover thousands of songs and movies in one place. Your perfect entertainment companion.</p>
+                            <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+                                <button onClick={() => setActiveTab('music')} style={{ padding: '0.8rem 1.5rem', borderRadius: '50px', background: 'white', color: 'black', border: 'none', fontWeight: 700, cursor: 'pointer' }}>Explore Music</button>
+                                <button onClick={() => setActiveTab('drive')} style={{ padding: '0.8rem 1.5rem', borderRadius: '50px', background: 'rgba(255,255,255,0.2)', color: 'white', border: '1px solid rgba(255,255,255,0.4)', fontWeight: 700, cursor: 'pointer' }}>My Local Drive</button>
+                            </div>
+                        </div>
+                        <div className="banner-circle" style={{ position: 'absolute', right: '-10%', top: '-20%', width: '200px', height: '200px', background: 'white', opacity: 0.1, borderRadius: '50%' }}></div>
+                   </div>
+                </div>
+            )}
 
             <div style={{ marginBottom: '3rem' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-                <h2 style={{ fontSize: '1.5rem' }}>Popular Songs</h2>
-                <button onClick={() => setActiveTab('music')} className="nav-link" style={{ background: 'none', color: 'var(--primary)' }}>View All</button>
+                <h2 style={{ fontSize: '1.5rem' }}>{activeTab === 'liked' ? `${filteredSongs.length} Liked Tracks` : 'Recommended For You'}</h2>
+                {activeTab === 'home' && <button onClick={() => setActiveTab('music')} className="nav-link" style={{ background: 'none', color: 'var(--primary)' }}>View All</button>}
               </div>
-              <div className="media-grid">
-                {filteredSongs.slice(0, 4).map(song => (
-                  <MediaCard key={song._id} item={song} type="music" onClick={setCurrentSong} />
-                ))}
-              </div>
+              
+              {filteredSongs.length > 0 ? (
+                <div className="media-grid">
+                  {(activeTab === 'home' ? filteredSongs.slice(0, 4) : filteredSongs).map(song => (
+                    <MediaCard 
+                        key={song._id} 
+                        item={song} 
+                        type="music" 
+                        onClick={setCurrentSong} 
+                        isLiked={favorites.includes(song._id)}
+                        onLike={() => toggleLike(song._id)}
+                    />
+                  ))}
+                </div>
+              ) : (
+                  <div className="glass" style={{ padding: '3rem', textAlign: 'center', opacity: 0.6 }}>No songs found in this category.</div>
+              )}
             </div>
             
-            <section>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-                <h2 style={{ fontSize: '1.5rem' }}>Trending Movies</h2>
-                <button onClick={() => setActiveTab('movies')} className="nav-link" style={{ background: 'none', color: 'var(--primary)' }}>View All</button>
-              </div>
-              <div className="media-grid">
-                {filteredMovies.slice(0, 4).map(movie => (
-                  <MediaCard key={movie._id} item={movie} type="movie" onClick={setPlayingVideo} />
-                ))}
-              </div>
-            </section>
+            {activeTab === 'home' && (
+                <section>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                    <h2 style={{ fontSize: '1.5rem' }}>Trending Movies</h2>
+                    <button onClick={() => setActiveTab('movies')} className="nav-link" style={{ background: 'none', color: 'var(--primary)' }}>View All</button>
+                  </div>
+                  <div className="media-grid">
+                    {filteredMovies.slice(0, 4).map(movie => (
+                      <MediaCard key={movie._id} item={movie} type="movie" onClick={setPlayingVideo} />
+                    ))}
+                  </div>
+                </section>
+            )}
           </section>
         )}
 
@@ -312,6 +381,8 @@ function App() {
                             item={item} 
                             type={item.category} 
                             onClick={item.category === 'music' ? setCurrentSong : setPlayingVideo} 
+                            isLiked={favorites.includes(item._id)}
+                            onLike={() => toggleLike(item._id)}
                         />
                     ))}
                 </div>
@@ -338,7 +409,6 @@ function App() {
             {showAddMusic && (
                 <div className="glass" style={{ padding: '2rem', marginBottom: '2.5rem', animation: 'slideDown 0.4s easeOut' }}>
                     <h2 style={{ fontSize: '1.25rem', marginBottom: '1.5rem' }}>Upload New Track</h2>
-                    <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', marginBottom: '1.5rem' }}>Tip: When you select a song, we'll automatically detect the title and artist for you!</p>
                     <form id="add-music-form" onSubmit={async (e) => {
                         e.preventDefault();
                         const target = e.target;
@@ -350,7 +420,8 @@ function App() {
                                 title: target.title.value,
                                 artist: target.artist.value,
                                 url: audioUrl,
-                                image: imageUrl
+                                image: imageUrl,
+                                category: selectedGenre !== 'All' ? selectedGenre.toLowerCase() : 'pop'
                             });
                             alert('Song uploaded to your library!');
                             setShowAddMusic(false);
@@ -425,7 +496,13 @@ function App() {
                             <div style={{ fontWeight: 600, color: currentSong?._id === song._id ? 'var(--primary)' : 'white' }}>{song.title}</div>
                         </div>
                         <div style={{ color: 'var(--text-muted)' }}>{song.artist}</div>
-                        <div style={{ textAlign: 'right' }}>
+                        <div style={{ textAlign: 'right', display: 'flex', alignItems: 'center', gap: '0.5rem', justifyContent: 'flex-end' }}>
+                            <button 
+                                onClick={(e) => { e.stopPropagation(); toggleLike(song._id); }}
+                                style={{ background: 'none', border: 'none', color: favorites.includes(song._id) ? 'var(--secondary)' : 'var(--text-muted)', cursor: 'pointer' }}
+                            >
+                                <Heart size={18} fill={favorites.includes(song._id) ? 'currentColor' : 'none'} />
+                            </button>
                             <div className="control-btn play" style={{ width: '32px', height: '32px', display: 'inline-flex', background: currentSong?._id === song._id ? 'white' : 'var(--surface-hover)' }}>
                                 <Play size={16} fill="currentColor" />
                             </div>
@@ -436,6 +513,7 @@ function App() {
           </section>
         )}
 
+        {/* ... Rest of tabs existing ... */}
         {activeTab === 'movies' && (
           <section>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
@@ -447,7 +525,6 @@ function App() {
 
             {showAddMovie && (
                 <div className="glass" style={{ padding: '2rem', marginBottom: '2.5rem' }}>
-                    <h2 style={{ fontSize: '1.25rem', marginBottom: '1.5rem' }}>New Cinematic Entry</h2>
                     <form onSubmit={async (e) => {
                         e.preventDefault();
                         const target = e.target;
@@ -518,6 +595,10 @@ function App() {
         songs={currentSong?.isLocal ? localDriveMedia.filter(m => m.category === 'music') : songs} 
         onNext={handleNext} 
         onPrev={handlePrev} 
+        isShuffle={isShuffle}
+        setIsShuffle={setIsShuffle}
+        isRepeat={isRepeat}
+        setIsRepeat={setIsRepeat}
       />
 
       <VideoModal 
@@ -526,6 +607,7 @@ function App() {
       />
     </div>
   );
+
 }
 
 export default App;

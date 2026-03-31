@@ -20,9 +20,16 @@ if (!fs.existsSync(uploadDir)){
 }
 
 // Middleware
-app.use(cors());
+const corsOptions = {
+    origin: '*', // Allow all for now during debug
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+    credentials: true,
+    optionsSuccessStatus: 200
+};
+app.use(cors(corsOptions));
 app.use(express.json());
 app.use('/uploads', express.static(uploadDir));
+
 
 // Multer Storage Configuration
 const storage = multer.diskStorage({

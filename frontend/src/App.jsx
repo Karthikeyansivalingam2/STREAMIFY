@@ -6,7 +6,9 @@ import MediaCard from './components/MediaCard';
 import AudioPlayer from './components/AudioPlayer';
 import VideoModal from './components/VideoModal';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const BASE_API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const API_URL = BASE_API_URL.endsWith('/api') ? BASE_API_URL : `${BASE_API_URL}/api`;
+
 
 function App() {
   const [activeTab, setActiveTab] = useState('home');

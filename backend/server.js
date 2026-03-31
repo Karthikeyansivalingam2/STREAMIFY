@@ -20,22 +20,26 @@ app.get('/api/discover', async (req, res) => {
     const { query } = req.query;
     if (!query) return res.status(400).json({ success: false, message: "Query is required" });
     
+    console.log("Searching for:", query);
     try {
         const response = await axios.get(`https://saavn.dev/api/search/songs?query=${encodeURIComponent(query)}`);
-        // We only care about the inner response
         return res.json(response.data);
     } catch (err) {
-        console.error("Discovery Primary Error, trying secondary...");
+        console.warn("Primary API failed, trying Vercel Backup...");
         try {
-            const fallback = await axios.get(`https://saavn.me/api/search/songs?query=${encodeURIComponent(query)}`);
+            const fallback = await axios.get(`https://jiosaavn-api-taupe.vercel.app/search/songs?query=${encodeURIComponent(query)}`);
             return res.json(fallback.data);
         } catch (e) {
             console.error("Discovery Final Error:", e.message);
-            return res.status(500).json({ success: false, message: "Music search error" });
+            return res.status(500).json({ 
+                success: false, 
+                message: "All music servers are unreachable.",
+                error: e.message 
+            });
         }
     }
-
 });
+
 
 // Create uploads directory if it doesn't exist
 

@@ -229,11 +229,14 @@ function App() {
         }
     } catch (err) {
         console.error("Discovery error", err);
-        alert("Server is currently busy. Please try again soon!");
+        const msg = err.response?.data?.message || "Server Busy";
+        const detailed = err.response?.data?.error || "";
+        alert(`${msg} ${detailed}`);
     } finally {
         setIsDiscovering(false);
     }
   };
+
 
 
   const toggleLike = (songId) => {

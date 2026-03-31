@@ -15,6 +15,23 @@ const Movie = require('./models/Movie');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// Create uploads directory if it doesn't exist
+const uploadDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadDir)){
+    fs.mkdirSync(uploadDir);
+}
+
+// Middleware
+const corsOptions = {
+    origin: '*', // Allow all for now during debug
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+    credentials: true,
+    optionsSuccessStatus: 200
+};
+app.use(cors(corsOptions));
+app.use(express.json());
+app.use('/uploads', express.static(uploadDir));
+
 // Music Discovery Proxy (Bypass CORS)
 app.get('/api/discover', async (req, res) => {
     const { query } = req.query;
@@ -39,25 +56,6 @@ app.get('/api/discover', async (req, res) => {
         }
     }
 });
-
-
-// Create uploads directory if it doesn't exist
-
-const uploadDir = path.join(__dirname, 'uploads');
-if (!fs.existsSync(uploadDir)){
-    fs.mkdirSync(uploadDir);
-}
-
-// Middleware
-const corsOptions = {
-    origin: '*', // Allow all for now during debug
-    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
-    credentials: true,
-    optionsSuccessStatus: 200
-};
-app.use(cors(corsOptions));
-app.use(express.json());
-app.use('/uploads', express.static(uploadDir));
 
 
 // Multer Storage Configuration

@@ -1,19 +1,19 @@
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap');
 
 :root {
-  --primary: #8b5cf6;
-  --secondary: #ec4899;
-  --accent: #10b981;
-  --background: #0f172a;
-  --surface: #1e293b;
-  --surface-hover: #334155;
-  --text: #f8fafc;
-  --text-muted: #94a3b8;
-  --glass: rgba(255, 255, 255, 0.05);
-  --glass-border: rgba(255, 255, 255, 0.1);
-  --radius: 12px;
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-  --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  --primary: #1ed760;
+  --secondary: #282828;
+  --accent: #1db954;
+  --background: #000000;
+  --surface: #121212;
+  --surface-hover: #1f1f1f;
+  --text: #ffffff;
+  --text-muted: #b3b3b3;
+  --glass: rgba(18, 18, 18, 0.7);
+  --glass-border: rgba(255, 255, 255, 0.05);
+  --radius: 8px;
+  --shadow-lg: 0 10px 30px rgba(0, 0, 0, 0.5);
+  --transition: all 0.25s cubic-bezier(0.3, 0, 0.2, 1);
 }
 
 .banner-title {
@@ -149,15 +149,18 @@ body {
 
 .main-content {
   overflow-y: auto;
-  padding: 2rem;
-  padding-bottom: 120px; /* Space for player */
+  padding: 2rem 3rem;
+  padding-bottom: 120px;
+  background: var(--surface);
+  border-radius: var(--radius);
+  margin: 0.5rem 0.5rem 0.5rem 0;
 }
 
 /* Components */
 .sidebar {
-  background: var(--surface);
+  background: var(--background);
   padding: 2rem 1.5rem;
-  border-right: 1px solid var(--glass-border);
+  border-right: none;
   display: flex;
   flex-direction: column;
   gap: 2rem;
@@ -176,9 +179,17 @@ body {
 }
 
 .nav-link:hover, .nav-link.active {
-  background: var(--primary);
-  color: white;
-  box-shadow: 0 4px 10px rgba(139, 92, 246, 0.3);
+  color: var(--text);
+  background: transparent;
+}
+
+.nav-link.active {
+  color: var(--primary);
+}
+
+.nav-link:hover {
+  color: var(--primary);
+  opacity: 0.8;
 }
 
 .media-grid {
@@ -195,17 +206,16 @@ body {
 }
 
 .media-card {
-  background: var(--surface);
+  background: var(--surface-light, #181818);
   border-radius: var(--radius);
   overflow: hidden;
   transition: var(--transition);
   cursor: pointer;
   position: relative;
+  padding: 1rem;
 }
 
 .media-card:hover {
-  transform: translateY(-5px);
-  box-shadow: var(--shadow-lg);
   background: var(--surface-hover);
 }
 
@@ -213,6 +223,9 @@ body {
   position: relative;
   aspect-ratio: 1/1;
   overflow: hidden;
+  border-radius: 4px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+  margin-bottom: 1rem;
 }
 
 .card-img {
@@ -222,9 +235,7 @@ body {
   transition: var(--transition);
 }
 
-.media-card:hover .card-img {
-  transform: scale(1.05);
-}
+
 
 .play-overlay {
   position: absolute;
@@ -242,7 +253,7 @@ body {
 }
 
 .card-content {
-  padding: 1rem;
+  padding: 0;
 }
 
 .card-title {
@@ -448,26 +459,37 @@ body {
 
 /* Search Bar */
 .search-container {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 2.5rem;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: var(--surface);
+  padding: 1rem 0;
+}
+
+.search-wrapper {
   position: relative;
-  margin-bottom: 2rem;
+  flex: 1;
 }
 
 .search-input {
   width: 100%;
-  max-width: 400px;
-  background: var(--surface);
-  border: 1px solid var(--glass-border);
-  border-radius: 30px;
-  padding: 0.75rem 1rem 0.75rem 3rem;
+  background: #242424;
+  border: none;
+  border-radius: 500px;
+  padding: 0.8rem 1rem 0.8rem 3rem;
   color: var(--text);
-  font-size: 1rem;
+  font-size: 0.9rem;
   transition: var(--transition);
 }
 
 .search-input:focus {
   outline: none;
-  border-color: var(--primary);
-  box-shadow: 0 0 15px rgba(139, 92, 246, 0.2);
+  background: #2a2a2a;
+  box-shadow: 0 0 0 1px rgba(255,255,255,0.1);
 }
 
 .search-icon {
@@ -476,6 +498,41 @@ body {
   top: 50%;
   transform: translateY(-50%);
   color: var(--text-muted);
+}
+
+/* Filter Chips */
+.filter-container {
+    display: flex;
+    gap: 0.6rem;
+    margin-bottom: 2rem;
+    overflow-x: auto;
+    scrollbar-width: none; /* Firefox */
+}
+
+.filter-container::-webkit-scrollbar {
+    display: none; /* Chrome/Safari */
+}
+
+.filter-chip {
+    padding: 0.5rem 1.2rem;
+    border-radius: 32px;
+    background: #2a2a2a;
+    color: white;
+    border: none;
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: var(--transition);
+}
+
+.filter-chip:hover {
+    background: #3e3e3e;
+}
+
+.filter-chip.active {
+    background: white;
+    color: black;
 }
 
 /* Sections */

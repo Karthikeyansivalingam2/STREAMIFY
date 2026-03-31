@@ -31,6 +31,7 @@ function App() {
   const [isRepeat, setIsRepeat] = useState(false);
   const [discoverResults, setDiscoverResults] = useState([]);
   const [isDiscovering, setIsDiscovering] = useState(false);
+  const [trendingSongs, setTrendingSongs] = useState([]);
 
 
   useEffect(() => {
@@ -65,15 +66,27 @@ function App() {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [songsRes, moviesRes] = await Promise.all([
+      const [songsRes, moviesRes, trendingRes] = await Promise.all([
         axios.get(`${API_URL}/songs`),
-        axios.get(`${API_URL}/movies`)
+        axios.get(`${API_URL}/movies`),
+        axios.get(`${API_URL}/discover?query=latest+tamil`)
       ]);
       setSongs(songsRes.data || []);
       setMovies(moviesRes.data || []);
+      
+      if (trendingRes.data?.data?.results) {
+         const hits = trendingRes.data.data.results.slice(0, 8).map(item => ({
+            _id: item.id,
+            title: item.name,
+            artist: item.primaryArtists || item.artists?.primary?.[0]?.name || "Online Hit",
+            image: item.image?.[item.image.length-1]?.link || item.image?.[item.image.length-1]?.url || item.image?.[0]?.url,
+            url: item.downloadUrl?.[item.downloadUrl.length-1]?.link || item.downloadUrl?.[item.downloadUrl.length-1]?.url || item.downloadUrl?.[0]?.url,
+            category: 'Trending'
+         }));
+         setTrendingSongs(hits);
+      }
     } catch (err) {
       console.error('Error fetching data:', err);
-      // Ensure arrays are empty but app still renders
       setSongs([]);
       setMovies([]);
     } finally {
@@ -213,13 +226,13 @@ function App() {
         const res = await axios.get(`${API_URL}/discover?query=${encodeURIComponent(query)}`);
         const data = res.data;
         
-        if (data.success && data.data.results) {
+        if ((data.success || data.status === 'SUCCESS') && data.data && data.data.results) {
             const results = data.data.results.map(item => ({
                 _id: item.id,
                 title: item.name,
-                artist: item.artists.primary?.[0]?.name || "Unknown",
-                image: item.image?.[item.image.length-1]?.url || item.image?.[0]?.url,
-                url: item.downloadUrl?.[item.downloadUrl.length-1]?.url || item.downloadUrl?.[0]?.url,
+                artist: item.primaryArtists || item.artists?.primary?.[0]?.name || "Unknown",
+                image: item.image?.[item.image.length-1]?.link || item.image?.[item.image.length-1]?.url || item.image?.[0]?.url,
+                url: item.downloadUrl?.[item.downloadUrl.length-1]?.link || item.downloadUrl?.[item.downloadUrl.length-1]?.url || item.downloadUrl?.[0]?.url,
                 category: 'Discover'
             }));
             setDiscoverResults(results);
@@ -282,7 +295,7 @@ function App() {
     m.category.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const genres = ['All', 'Pop', 'Rock', 'Jazz', 'Lo-Fi', 'Classical'];
+  const genres = ['All', 'Tamil Hits', 'Trending', 'Lo-Fi', 'Classical'];
 
 
   return (
@@ -290,57 +303,51 @@ function App() {
       <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
       
       <main className="main-content">
-        <div className="search-container" style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-          <div style={{ position: 'relative', flex: 1, display: 'flex', gap: '0.5rem' }}>
-            <div style={{ position: 'relative', flex: 1 }}>
-                <Search size={20} className="search-icon" />
-                <input 
-                  type="text" 
-                  placeholder={activeTab === 'discover' ? "Search 100 Million+ Songs Globally..." : "Search locally..."}
-                  className="search-input"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  onKeyDown={(e) => {
-                      if (e.key === 'Enter') handleGlobalSearch(searchTerm);
-                  }}
-                  style={{ maxWidth: 'none' }}
-                />
-            </div>
-            <button 
-                onClick={() => handleGlobalSearch(searchTerm)}
-                style={{ padding: '0.8rem 1.5rem', borderRadius: '50px', background: 'var(--primary)', color: 'white', border: 'none', fontWeight: 600, cursor: 'pointer' }}
-            >
-                Search
-            </button>
+        <header className="search-container">
+          <div className="search-wrapper">
+              <Search size={18} className="search-icon" />
+              <input 
+                type="text" 
+                placeholder={activeTab === 'discover' ? "Search 100 Million+ Global Songs..." : "Search in your library..."}
+                className="search-input"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleGlobalSearch(searchTerm);
+                }}
+              />
           </div>
 
-          {isInstallable && (
-             <button 
-                 onClick={handleInstallClick}
-                 style={{ padding: '0.8rem 1.5rem', borderRadius: '50px', background: 'var(--primary)', color: 'white', border: 'none', fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}
-             >
-                 Install App
-             </button>
-          )}
-        </div>
+          <div style={{ display: 'flex', gap: '0.8rem' }}>
+              {activeTab === 'discover' && (
+                  <button 
+                      onClick={() => handleGlobalSearch(searchTerm)}
+                      className="filter-chip"
+                      style={{ background: 'var(--primary)', color: 'black', fontWeight: 600 }}
+                  >
+                      Search
+                  </button>
+              )}
+              {isInstallable && (
+                  <button 
+                      onClick={handleInstallClick}
+                      className="filter-chip"
+                      style={{ background: 'white', color: 'black', fontWeight: 600 }}
+                  >
+                      Install
+                  </button>
+              )}
+          </div>
+        </header>
 
         {/* Genre Selector */}
-        {(activeTab === 'home' || activeTab === 'music') && (
-            <div style={{ display: 'flex', gap: '0.8rem', marginBottom: '2rem', overflowX: 'auto', paddingBottom: '0.5rem' }}>
+        {(activeTab === 'home' || activeTab === 'music' || activeTab === 'liked') && (
+            <div className="filter-container">
                 {genres.map(genre => (
                     <button 
                         key={genre}
+                        className={`filter-chip ${selectedGenre === genre ? 'active' : ''}`}
                         onClick={() => setSelectedGenre(genre)}
-                        style={{ 
-                            padding: '0.6rem 1.5rem', 
-                            borderRadius: '50px', 
-                            background: selectedGenre === genre ? 'var(--primary)' : 'var(--surface)', 
-                            color: 'white', 
-                            border: '1px solid var(--glass-border)', 
-                            cursor: 'pointer',
-                            whiteSpace: 'nowrap',
-                            transition: 'var(--transition)'
-                        }}
                     >
                         {genre}
                     </button>
@@ -354,16 +361,16 @@ function App() {
             
             {activeTab === 'home' && (
                 <div style={{ marginBottom: '3rem' }}>
-                   <div className="glass banner-hero" style={{ padding: '2rem', borderRadius: '24px', background: 'linear-gradient(135deg, var(--primary), var(--secondary))', border: 'none', position: 'relative', overflow: 'hidden' }}>
+                   <div className="banner-hero" style={{ padding: '3rem', borderRadius: '12px', background: 'linear-gradient(135deg, rgba(30,215,96,0.15) 0%, rgba(0,0,0,1) 100%)', border: '1px solid var(--glass-border)', position: 'relative', overflow: 'hidden' }}>
                         <div style={{ position: 'relative', zIndex: 2 }}>
-                            <h2 className="banner-title" style={{ fontWeight: 800, marginBottom: '1rem' }}>Stream Your Favorites</h2>
-                            <p style={{ opacity: 0.9, fontSize: '1rem', maxWidth: '500px', marginBottom: '2rem' }}>Discover thousands of songs and movies in one place. Your perfect entertainment companion.</p>
+                            <h2 className="banner-title" style={{ fontWeight: 800, marginBottom: '1rem', color: 'var(--text)' }}>Stream Your Favorites</h2>
+                            <p style={{ opacity: 0.8, fontSize: '1rem', maxWidth: '500px', marginBottom: '2rem' }}>Discover thousands of songs and movies in one place. Your perfect entertainment companion.</p>
                             <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-                                <button onClick={() => setActiveTab('music')} style={{ padding: '0.8rem 1.5rem', borderRadius: '50px', background: 'white', color: 'black', border: 'none', fontWeight: 700, cursor: 'pointer' }}>Explore Music</button>
-                                <button onClick={() => setActiveTab('drive')} style={{ padding: '0.8rem 1.5rem', borderRadius: '50px', background: 'rgba(255,255,255,0.2)', color: 'white', border: '1px solid rgba(255,255,255,0.4)', fontWeight: 700, cursor: 'pointer' }}>My Local Drive</button>
+                                <button onClick={() => setActiveTab('music')} style={{ padding: '0.8rem 2rem', borderRadius: '50px', background: 'var(--primary)', color: 'black', border: 'none', fontWeight: 700, cursor: 'pointer', transition: 'transform 0.2s' }}>Explore Music</button>
+                                <button onClick={() => setActiveTab('drive')} style={{ padding: '0.8rem 2rem', borderRadius: '50px', background: 'transparent', color: 'white', border: '1px solid var(--text-muted)', fontWeight: 700, cursor: 'pointer', transition: 'border-color 0.2s' }}>My Local Drive</button>
                             </div>
                         </div>
-                        <div className="banner-circle" style={{ position: 'absolute', right: '-10%', top: '-20%', width: '200px', height: '200px', background: 'white', opacity: 0.1, borderRadius: '50%' }}></div>
+                        <div className="banner-circle" style={{ position: 'absolute', right: '5%', top: '-30%', width: '300px', height: '300px', background: 'var(--primary)', filter: 'blur(100px)', opacity: 0.15, borderRadius: '50%' }}></div>
                    </div>
                 </div>
             )}
@@ -388,9 +395,33 @@ function App() {
                   ))}
                 </div>
               ) : (
-                  <div className="glass" style={{ padding: '3rem', textAlign: 'center', opacity: 0.6 }}>No songs found in this category.</div>
+                  <div className="glass" style={{ padding: '3rem', textAlign: 'center', opacity: 0.6 }}>
+                      <h3>Your library is empty</h3>
+                      <p style={{ fontSize: '0.9rem', marginTop: '0.5rem' }}>Search in 'Discover' to find songs or select 'All' filter.</p>
+                  </div>
               )}
             </div>
+
+            {activeTab === 'home' && trendingSongs.length > 0 && (
+                <div style={{ marginBottom: '3rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                        <h2 style={{ fontSize: '1.5rem' }}>🔥 Tamil Trending Hits</h2>
+                        <button onClick={() => { setSearchTerm('tamil trending'); handleGlobalSearch('tamil trending'); }} className="nav-link" style={{ background: 'none', color: 'var(--primary)' }}>View All Hits</button>
+                    </div>
+                    <div className="media-grid">
+                        {trendingSongs.map(song => (
+                            <MediaCard 
+                                key={song._id} 
+                                item={song} 
+                                type="music" 
+                                onClick={setCurrentSong} 
+                                isLiked={favorites.includes(song._id)}
+                                onLike={() => toggleLike(song._id)}
+                            />
+                        ))}
+                    </div>
+                </div>
+            )}
             
             {activeTab === 'home' && (
                 <section>

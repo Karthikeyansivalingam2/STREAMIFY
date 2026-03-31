@@ -209,66 +209,27 @@ function App() {
     if (!query || query.length < 3) return;
     setIsDiscovering(true);
     
-    // Primary API
-    const primaryApi = `https://saavn.dev/api/search/songs?query=${query}`;
-    // Backup API 2 (Vercel)
-    const vercelApi = `https://jiosaavn-api-taupe.vercel.app/search/songs?query=${query}`;
-
-    const attemptFetch = async (url) => {
-
-      try {
-          const res = await axios.get(url);
-          // If the API returns success or is jiosaavn-api direct
-          const data = res.data.data;
-          if (data && data.results) {
-              return data.results.map(item => ({
-                  _id: item.id,
-                  title: item.name,
-                  artist: item.artists.primary?.[0]?.name || "Unknown",
-                  image: item.image?.[item.image.length-1]?.url || item.image?.[0]?.url,
-                  url: item.downloadUrl?.[item.downloadUrl.length-1]?.url || item.downloadUrl?.[0]?.url,
-                  category: 'Discover'
-              }));
-          }
-      } catch (e) {
-          console.warn("Retrying with another link...");
-          return null;
-      }
-      return null;
-    };
-
-
-
     try {
-        // Ultimate Failover: Try 3 different servers
-        let results = await attemptFetch(primaryApi);
-        if (!results) {
-            console.log("Primary failed, trying Vercel...");
-            results = await attemptFetch(vercelApi);
-        }
-        if (!results) {
-            console.log("Vercel failed, trying Saavn.me...");
-            results = await attemptFetch(`https://saavn.me/api/search/songs?query=${query}`);
-        }
-
-        if (results) {
+        const res = await axios.get(`${API_URL}/discover?query=${encodeURIComponent(query)}`);
+        const data = res.data;
+        
+        if (data.success && data.data.results) {
+            const results = data.data.results.map(item => ({
+                _id: item.id,
+                title: item.name,
+                artist: item.artists.primary?.[0]?.name || "Unknown",
+                image: item.image?.[item.image.length-1]?.url || item.image?.[0]?.url,
+                url: item.downloadUrl?.[item.downloadUrl.length-1]?.url || item.downloadUrl?.[0]?.url,
+                category: 'Discover'
+            }));
             setDiscoverResults(results);
             if (activeTab !== 'discover') setActiveTab('discover');
         } else {
-            alert("No results found. Try a different artist or song name!");
+             alert("No results found. Try a different artist or song name!");
         }
-
     } catch (err) {
         console.error("Discovery error", err);
-        // Last ditch try with backup if the first threw an error
-        try {
-            const results = await attemptFetch(backupApi);
-            if (results) {
-                setDiscoverResults(results);
-                return;
-            }
-        } catch (e) {}
-        alert("Music servers are busy. Please try again in 5 seconds!");
+        alert("Server is currently busy. Please try again soon!");
     } finally {
         setIsDiscovering(false);
     }
@@ -276,6 +237,7 @@ function App() {
 
 
   const toggleLike = (songId) => {
+
 
     setFavorites(prev => 
         prev.includes(songId) ? prev.filter(id => id !== songId) : [...prev, songId]

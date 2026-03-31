@@ -22,17 +22,19 @@ app.get('/api/discover', async (req, res) => {
     
     try {
         const response = await axios.get(`https://saavn.dev/api/search/songs?query=${encodeURIComponent(query)}`);
-        res.json(response.data);
+        // We only care about the inner response
+        return res.json(response.data);
     } catch (err) {
-        console.error("Discovery Proxy Error:", err.message);
-        // Fallback to secondary if primary fails
+        console.error("Discovery Primary Error, trying secondary...");
         try {
             const fallback = await axios.get(`https://saavn.me/api/search/songs?query=${encodeURIComponent(query)}`);
-            res.json(fallback.data);
+            return res.json(fallback.data);
         } catch (e) {
-            res.status(500).json({ success: false, message: "Discovery failed" });
+            console.error("Discovery Final Error:", e.message);
+            return res.status(500).json({ success: false, message: "Music search error" });
         }
     }
+
 });
 
 // Create uploads directory if it doesn't exist

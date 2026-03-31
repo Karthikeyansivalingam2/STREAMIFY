@@ -211,38 +211,53 @@ function App() {
     
     // Primary API
     const primaryApi = `https://saavn.dev/api/search/songs?query=${query}`;
-    // Backup API
-    const backupApi = `https://saavn.me/api/search/songs?query=${query}`;
+    // Backup API 2 (Vercel)
+    const vercelApi = `https://jiosaavn-api-taupe.vercel.app/search/songs?query=${query}`;
 
     const attemptFetch = async (url) => {
-      // Use a CORS proxy to ensure it works on localhost too
-      const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
-      const res = await axios.get(proxyUrl);
-      const data = JSON.parse(res.data.contents);
-      if (data.success && data.data.results) {
-          return data.data.results.map(item => ({
-              _id: item.id,
-              title: item.name,
-              artist: item.artists.primary[0]?.name || "Unknown",
-              image: item.image[item.image.length-1]?.url || item.image[0]?.url,
-              url: item.downloadUrl[item.downloadUrl.length-1]?.url || item.downloadUrl[0]?.url,
-              category: 'Discover'
-          }));
+
+      try {
+          const res = await axios.get(url);
+          // If the API returns success or is jiosaavn-api direct
+          const data = res.data.data;
+          if (data && data.results) {
+              return data.results.map(item => ({
+                  _id: item.id,
+                  title: item.name,
+                  artist: item.artists.primary?.[0]?.name || "Unknown",
+                  image: item.image?.[item.image.length-1]?.url || item.image?.[0]?.url,
+                  url: item.downloadUrl?.[item.downloadUrl.length-1]?.url || item.downloadUrl?.[0]?.url,
+                  category: 'Discover'
+              }));
+          }
+      } catch (e) {
+          console.warn("Retrying with another link...");
+          return null;
       }
       return null;
     };
 
 
+
     try {
+        // Ultimate Failover: Try 3 different servers
         let results = await attemptFetch(primaryApi);
-        if (!results) results = await attemptFetch(backupApi);
+        if (!results) {
+            console.log("Primary failed, trying Vercel...");
+            results = await attemptFetch(vercelApi);
+        }
+        if (!results) {
+            console.log("Vercel failed, trying Saavn.me...");
+            results = await attemptFetch(`https://saavn.me/api/search/songs?query=${query}`);
+        }
 
         if (results) {
             setDiscoverResults(results);
             if (activeTab !== 'discover') setActiveTab('discover');
         } else {
-            alert("No results found. Try a more specific song name!");
+            alert("No results found. Try a different artist or song name!");
         }
+
     } catch (err) {
         console.error("Discovery error", err);
         // Last ditch try with backup if the first threw an error

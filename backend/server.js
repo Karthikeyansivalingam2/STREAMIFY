@@ -24,7 +24,7 @@ if (!fs.existsSync(uploadDir)){
 
 // Middleware
 const corsOptions = {
-    origin: '*', // Allow all for now during debug
+    origin: true, // Echoes the originating request's origin dynamically instead of using wildcard '*'
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
     credentials: true,
     optionsSuccessStatus: 200

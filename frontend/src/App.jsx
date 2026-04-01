@@ -395,8 +395,8 @@ function App() {
                               localStorage.setItem('streamify-user', JSON.stringify(res.data.user));
                           }
                       } catch (err) {
-                          const msg = err.response?.data?.message || 'Authentication failed';
-                          alert(msg);
+                          const msg = err.response?.data?.message || err.message || 'Authentication failed';
+                          alert(`Error: ${msg}\nAPI: ${API_URL}`);
                       } finally {
                           setAuthLoading(false);
                       }
@@ -537,8 +537,8 @@ function App() {
                                   setShowAddAccount(false);
                               }
                           } catch (err) {
-                              const msg = err.response?.data?.message || 'Authentication failed';
-                              alert(msg);
+                              const msg = err.response?.data?.message || err.message || 'Authentication failed';
+                              alert(`Error: ${msg}\nAPI: ${API_URL}`);
                           } finally {
                               setAddAccountLoading(false);
                           }

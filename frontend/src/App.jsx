@@ -804,7 +804,7 @@ function App() {
                         </div>
 
                         {/* Local Files Entry */}
-                        <div className="song-row" onClick={() => setSelectedPlaylistId('local')} style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '1rem', cursor: 'pointer' }}>
+                        <div className="song-row" onClick={() => localDriveMedia.length === 0 ? handleFolderSelect() : setSelectedPlaylistId('local')} style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '1rem', cursor: 'pointer' }}>
                             <div style={{ width: '64px', height: '64px', background: '#1e1b4b', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                 <HardDrive color="white" />
                             </div>
@@ -865,9 +865,16 @@ function App() {
                                 <h1 style={{ fontSize: '4rem', margin: '0 0 1rem', fontWeight: 900 }}>
                                     {selectedPlaylistId === 'liked' ? 'Liked Songs' : (selectedPlaylistId === 'local' ? 'Local Files' : playlists.find(p => p.id === selectedPlaylistId)?.name)}
                                 </h1>
-                                <p style={{ color: 'var(--text-muted)' }}>{user?.email} â€¢ {
-                                    selectedPlaylistId === 'liked' ? `${favorites.length} songs` : (selectedPlaylistId === 'local' ? `${localDriveMedia.length} tracks` : `${playlists.find(p => p.id === selectedPlaylistId)?.songs.length || 0} songs`)
-                                }</p>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                                    <p style={{ color: 'var(--text-muted)', margin: 0 }}>{user?.email} â€¢ {
+                                        selectedPlaylistId === 'liked' ? `${favorites.length} songs` : (selectedPlaylistId === 'local' ? `${localDriveMedia.length} tracks` : `${playlists.find(p => p.id === selectedPlaylistId)?.songs.length || 0} songs`)
+                                    }</p>
+                                    {selectedPlaylistId === 'local' && (
+                                        <button onClick={handleFolderSelect} className="filter-chip" style={{ background: 'var(--primary)', color: 'black', padding: '0.4rem 1rem', fontSize: '0.8rem' }}>
+                                            + Add Tracks
+                                        </button>
+                                    )}
+                                </div>
                             </div>
                         </div>
                     </div>

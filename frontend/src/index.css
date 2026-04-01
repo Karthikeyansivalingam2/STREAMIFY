@@ -75,14 +75,14 @@ body {
 /* Layout */
 .app-container {
   display: grid;
-  grid-template-columns: 240px 1fr;
+  grid-template-columns: 240px minmax(0, 1fr);
   height: 100vh;
   overflow: hidden;
 }
 
 @media (max-width: 768px) {
   .app-container {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
     height: calc(100vh - 60px); /* Adjust for bottom nav */
   }
   
@@ -153,11 +153,25 @@ body {
 
 .main-content {
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 2rem 3rem;
   padding-bottom: 120px;
   background: var(--surface);
   border-radius: var(--radius);
   margin: 0.5rem 0.5rem 0.5rem 0;
+  width: 100%;
+}
+
+@media (max-width: 600px) {
+    .search-container {
+        gap: 0.5rem !important;
+        flex-wrap: nowrap;
+    }
+    
+    .search-container .filter-chip {
+        padding: 0.4rem 0.8rem;
+        font-size: 0.8rem;
+    }
 }
 
 /* Components */

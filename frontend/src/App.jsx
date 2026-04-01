@@ -17,7 +17,7 @@ function App() {
   const [showAddMovie, setShowAddMovie] = useState(false);
   const [songs, setSongs] = useState([]);
   const [movies, setMovies] = useState([]);
-  const [localDriveMedia, setLocalDriveMedia] = useState([]);
+  const localDriveMedia = songs.filter(s => s.category === 'uploaded');
   const [isScanning, setIsScanning] = useState(false);
   const [playlists, setPlaylists] = useState(() => JSON.parse(localStorage.getItem('streamify-playlists') || '[]'));
   const [queue, setQueue] = useState([]);
@@ -198,58 +198,53 @@ function App() {
 
   const handleFolderSelect = async () => {
     try {
-        if ('showDirectoryPicker' in window) {
-            const dirHandle = await window.showDirectoryPicker();
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.multiple = true;
+        input.accept = 'audio/*';
+        
+        input.onchange = async (e) => {
+            const filesList = e.target.files;
+            if (!filesList || filesList.length === 0) return;
+            
             setIsScanning(true);
-            const files = [];
-            for await (const entry of dirHandle.values()) {
-                if (entry.kind === 'file') {
-                    const file = await entry.getFile();
-                    if (file.type.startsWith('audio/')) {
-                        const metadata = await extractMetadata(file);
-                        files.push({
-                            _id: Math.random().toString(36).substr(2, 9),
-                            title: metadata.title,
-                            artist: metadata.artist || 'Local Upload',
-                            image: metadata.image || 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=200&h=200&fit=crop',
-                            url: URL.createObjectURL(file),
-                            category: 'music',
-                            isLocal: true
+            try {
+                for (let i = 0; i < filesList.length; i++) {
+                    const file = filesList[i];
+                    // Extracted file metadata
+                    const metadata = await extractMetadata(file); // contains title, artist, image
+                    
+                    // Upload audio file to backend
+                    const uploadedUrl = await uploadFile(file);
+                    
+                    if (uploadedUrl) {
+                        // Keep the extracted image or default
+                        const img = metadata.image || 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=200&h=200&fit=crop';
+                        const newTitle = metadata.title || file.name;
+                        const newArtist = metadata.artist || 'Local Upload';
+                        
+                        // Push to database
+                        await axios.post(`${API_URL}/songs`, {
+                            title: newTitle,
+                            artist: newArtist,
+                            url: uploadedUrl,
+                            image: img,
+                            category: 'uploaded'
                         });
                     }
                 }
+                alert("Files successfully uploaded to your library!");
+                // Refresh main library list so new songs appear
+                fetchData();
+            } catch (uploadObjErr) {
+                console.error("Upload failure:", uploadObjErr);
+                alert("Some files failed to upload. " + uploadObjErr.message);
             }
-            setLocalDriveMedia(files);
             setIsScanning(false);
-        } else {
-            const input = document.createElement('input');
-            input.type = 'file';
-            input.multiple = true;
-            input.accept = 'audio/*';
-            input.onchange = async (e) => {
-                setIsScanning(true);
-                const filesList = e.target.files;
-                const arr = [];
-                for (let i = 0; i < filesList.length; i++) {
-                    const file = filesList[i];
-                    const metadata = await extractMetadata(file);
-                    arr.push({
-                        _id: Math.random().toString(36).substr(2, 9),
-                        title: metadata.title,
-                        artist: metadata.artist || 'Local Upload',
-                        image: metadata.image || 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=200&h=200&fit=crop',
-                        url: URL.createObjectURL(file),
-                        category: 'music',
-                        isLocal: true
-                    });
-                }
-                setLocalDriveMedia(arr);
-                setIsScanning(false);
-            };
-            input.click();
-        }
+        };
+        input.click();
     } catch (err) {
-        console.error("Folder access denied", err);
+        console.error("Access denied or failed", err);
         setIsScanning(false);
     }
   };
@@ -867,7 +862,7 @@ function App() {
                                 </h1>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                                     <p style={{ color: 'var(--text-muted)', margin: 0 }}>{user?.email} â€¢ {
-                                        selectedPlaylistId === 'liked' ? `${favorites.length} songs` : (selectedPlaylistId === 'local' ? `${localDriveMedia.length} tracks` : `${playlists.find(p => p.id === selectedPlaylistId)?.songs.length || 0} songs`)
+                                        selectedPlaylistId === 'liked' ? `${favorites.length} songs` : (selectedPlaylistId === 'local' ? `${localDriveMedia.length} tracks` : `${playlists.find(p => p.id === selectedPlaylistId)?.songs?.length || 0} songs`)
                                     }</p>
                                     {selectedPlaylistId === 'local' && (
                                         <button onClick={handleFolderSelect} className="filter-chip" style={{ background: 'var(--primary)', color: 'black', padding: '0.4rem 1rem', fontSize: '0.8rem' }}>

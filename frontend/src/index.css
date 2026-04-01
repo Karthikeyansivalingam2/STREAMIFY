@@ -138,12 +138,16 @@ body {
   }
 
   .main-content {
-      padding: 1rem;
-      padding-bottom: 160px; /* Space for player + nav */
+      padding: 1rem 1rem 120px 1rem; /* Adjust space for player */
+      margin: 0;
   }
 
   h1 {
-      font-size: 1.5rem;
+      font-size: 1.5rem !important;
+  }
+  
+  h2 {
+      font-size: 1.25rem !important;
   }
 }
 
@@ -190,6 +194,11 @@ body {
 .nav-link:hover {
   color: var(--primary);
   opacity: 0.8;
+}
+
+button.nav-link {
+    white-space: nowrap;
+    padding: 0.5rem 1rem;
 }
 
 .media-grid {
@@ -473,6 +482,7 @@ body {
 .search-wrapper {
   position: relative;
   flex: 1;
+  min-width: 0;
 }
 
 .search-input {
@@ -484,6 +494,7 @@ body {
   color: var(--text);
   font-size: 0.9rem;
   transition: var(--transition);
+  min-width: 0; /* Prevent flex box blowing out */
 }
 
 .search-input:focus {
@@ -507,6 +518,7 @@ body {
     margin-bottom: 2rem;
     overflow-x: auto;
     scrollbar-width: none; /* Firefox */
+    padding-right: 1rem; /* Prevent cutting off */
 }
 
 .filter-container::-webkit-scrollbar {

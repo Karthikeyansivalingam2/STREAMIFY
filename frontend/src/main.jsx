@@ -3,9 +3,10 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.jsx'
 
-// Mobile Debug Alert
+// Silent error logger (no alert popups)
 window.onerror = function(msg, url, line, col, error) {
-    alert("Mobile Error Detected: " + msg + "\nAt Line: " + line);
+    console.error("[Streamify Error]", msg, "Line:", line, error);
+    return true; // prevent default browser error handling
 };
 
 createRoot(document.getElementById('root')).render(

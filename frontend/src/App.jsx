@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Search, Music, Film, Plus, Play, HardDrive, Heart } from 'lucide-react';
+import { Search, Music, Film, Plus, Play, HardDrive, Heart, Camera, User, LogOut, Settings, History, X } from 'lucide-react';
 
 import Sidebar from './components/Sidebar';
 import MediaCard from './components/MediaCard';
@@ -19,6 +19,13 @@ function App() {
   const [movies, setMovies] = useState([]);
   const [localDriveMedia, setLocalDriveMedia] = useState([]);
   const [isScanning, setIsScanning] = useState(false);
+  const [playlists, setPlaylists] = useState(() => JSON.parse(localStorage.getItem('streamify-playlists') || '[]'));
+  const [queue, setQueue] = useState([]);
+  const [showPlaylistModal, setShowPlaylistModal] = useState(false);
+  const [selectedPlaylistId, setSelectedPlaylistId] = useState(null); 
+  const [showProfileDrawer, setShowProfileDrawer] = useState(false);
+  const [recentlyPlayed, setRecentlyPlayed] = useState(() => JSON.parse(localStorage.getItem('streamify-recents') || '[]'));
+  const [activeSubView, setActiveSubView] = useState(null); // 'settings', 'profile'
   const [searchTerm, setSearchTerm] = useState('');
   const [currentSong, setCurrentSong] = useState(null);
   const [playingVideo, setPlayingVideo] = useState(null);
@@ -34,14 +41,49 @@ function App() {
   const [trendingSongs, setTrendingSongs] = useState([]);
 
 
+  const [isAuthenticated, setIsAuthenticated] = useState(() => localStorage.getItem('streamify-auth') === 'true');
+  const [isLoginView, setIsLoginView] = useState(true);
+  const [loginEmail, setLoginEmail] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
+  const [user, setUser] = useState(() => {
+    const savedLine = localStorage.getItem('streamify-user');
+    return savedLine ? JSON.parse(savedLine) : null;
+  });
+  const [authLoading, setAuthLoading] = useState(false);
+  const [showAddAccount, setShowAddAccount] = useState(false);
+  const [addAccountEmail, setAddAccountEmail] = useState('');
+  const [addAccountPassword, setAddAccountPassword] = useState('');
+  const [addAccountIsLogin, setAddAccountIsLogin] = useState(true);
+  const [addAccountLoading, setAddAccountLoading] = useState(false);
+  const [savedAccounts, setSavedAccounts] = useState(() => JSON.parse(localStorage.getItem('streamify-accounts') || '[]'));
+
   useEffect(() => {
     localStorage.setItem('streamify-favorites', JSON.stringify(favorites));
   }, [favorites]);
 
+  useEffect(() => {
+    localStorage.setItem('streamify-playlists', JSON.stringify(playlists));
+  }, [playlists]);
+
+  useEffect(() => {
+    localStorage.setItem('streamify-recents', JSON.stringify(recentlyPlayed));
+  }, [recentlyPlayed]);
+
 
   useEffect(() => {
     fetchData();
+  }, []);
 
+  useEffect(() => {
+    if (currentSong) {
+        setRecentlyPlayed(prev => {
+            const filtered = prev.filter(s => s._id !== currentSong._id);
+            return [currentSong, ...filtered].slice(0, 10);
+        });
+    }
+  }, [currentSong]);
+
+  useEffect(() => {
     const handleBeforeInstallPrompt = (e) => {
       e.preventDefault();
       setDeferredPrompt(e);
@@ -109,9 +151,6 @@ function App() {
     const formData = new FormData();
     formData.append('file', file);
     
-    // Debug Alert: Let's see exactly what Vercel thinks the link is
-    alert("Target URL: " + `${API_URL}/upload`);
-
     try {
 
       const res = await axios.post(`${API_URL}/upload`, formData, {
@@ -166,15 +205,15 @@ function App() {
             for await (const entry of dirHandle.values()) {
                 if (entry.kind === 'file') {
                     const file = await entry.getFile();
-                    if (file.type.startsWith('audio/') || file.type.startsWith('video/')) {
-                        const metadata = file.type.startsWith('audio/') ? await extractMetadata(file) : { title: file.name };
+                    if (file.type.startsWith('audio/')) {
+                        const metadata = await extractMetadata(file);
                         files.push({
                             _id: Math.random().toString(36).substr(2, 9),
                             title: metadata.title,
-                            artist: metadata.artist || 'Local Video',
-                            image: metadata.image || 'https://images.unsplash.com/photo-1485846234645-a62644f84728?w=200&h=300&fit=crop',
+                            artist: metadata.artist || 'Local Upload',
+                            image: metadata.image || 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=200&h=200&fit=crop',
                             url: URL.createObjectURL(file),
-                            category: file.type.startsWith('audio/') ? 'music' : 'movie',
+                            category: 'music',
                             isLocal: true
                         });
                     }
@@ -183,29 +222,26 @@ function App() {
             setLocalDriveMedia(files);
             setIsScanning(false);
         } else {
-            // Mobile PWA fallback
             const input = document.createElement('input');
             input.type = 'file';
             input.multiple = true;
-            input.accept = 'audio/*,video/*';
+            input.accept = 'audio/*';
             input.onchange = async (e) => {
                 setIsScanning(true);
                 const filesList = e.target.files;
                 const arr = [];
                 for (let i = 0; i < filesList.length; i++) {
                     const file = filesList[i];
-                    if (file.type.startsWith('audio/') || file.type.startsWith('video/')) {
-                        const metadata = file.type.startsWith('audio/') ? await extractMetadata(file) : { title: file.name };
-                        arr.push({
-                            _id: Math.random().toString(36).substr(2, 9),
-                            title: metadata.title,
-                            artist: metadata.artist || 'Local Video',
-                            image: metadata.image || 'https://images.unsplash.com/photo-1485846234645-a62644f84728?w=200&h=300&fit=crop',
-                            url: URL.createObjectURL(file),
-                            category: file.type.startsWith('audio/') ? 'music' : 'movie',
-                            isLocal: true
-                        });
-                    }
+                    const metadata = await extractMetadata(file);
+                    arr.push({
+                        _id: Math.random().toString(36).substr(2, 9),
+                        title: metadata.title,
+                        artist: metadata.artist || 'Local Upload',
+                        image: metadata.image || 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=200&h=200&fit=crop',
+                        url: URL.createObjectURL(file),
+                        category: 'music',
+                        isLocal: true
+                    });
                 }
                 setLocalDriveMedia(arr);
                 setIsScanning(false);
@@ -213,7 +249,7 @@ function App() {
             input.click();
         }
     } catch (err) {
-        console.error("Folder access denied or failed", err);
+        console.error("Folder access denied", err);
         setIsScanning(false);
     }
   };
@@ -261,7 +297,14 @@ function App() {
   };
 
   const handleNext = () => {
-    const list = currentSong?.isLocal ? localDriveMedia.filter(m => m.category === 'music') : songs;
+    if (queue.length > 0) {
+        const nextInQueue = queue[0];
+        setQueue(prev => prev.slice(1));
+        setCurrentSong(nextInQueue);
+        return;
+    }
+
+    const list = songs;
     if (isShuffle && list.length > 1) {
         let nextIdx;
         do { nextIdx = Math.floor(Math.random() * list.length); } 
@@ -272,12 +315,31 @@ function App() {
     const idx = list.findIndex(s => s._id === currentSong?._id);
     if (idx < list.length - 1) setCurrentSong(list[idx + 1]);
     else if (isRepeat) setCurrentSong(list[0]);
-    else setCurrentSong(null); // Stop at end if not repeating
+    else setCurrentSong(null); 
+  };
+
+  const addToQueue = (song) => {
+      setQueue(prev => [...prev, song]);
+      alert("Added to queue!");
+  };
+
+  const createPlaylist = () => {
+      const name = prompt("Enter playlist name:");
+      if (name) {
+          setPlaylists(prev => [...prev, { id: Date.now(), name, songs: [] }]);
+      }
+  };
+
+  const addToPlaylist = (playlistId, song) => {
+      setPlaylists(prev => prev.map(p => 
+          p.id === playlistId ? { ...p, songs: [...p.songs, song] } : p
+      ));
+      alert("Added to playlist!");
   };
 
 
   const handlePrev = () => {
-    const list = currentSong?.isLocal ? localDriveMedia.filter(m => m.category === 'music') : songs;
+    const list = songs;
     const idx = list.findIndex(s => s._id === currentSong?._id);
     if (idx > 0) setCurrentSong(list[idx - 1]);
     else setCurrentSong(list[list.length - 1]);
@@ -298,8 +360,255 @@ function App() {
   const genres = ['All', 'Tamil Hits', 'Trending', 'Lo-Fi', 'Classical'];
 
 
+  if (!isAuthenticated) {
+      return (
+          <div className="login-container">
+              <div className="login-card">
+                  <div className="login-logo">
+                     <span style={{ color: 'var(--primary)' }}>Streamify</span> Premium
+                  </div>
+                  <div className="profile-icon" style={{ margin: '0 auto 1.5rem', width: '70px', height: '70px', background: 'rgba(255,255,255,0.05)', color: 'var(--text-muted)', border: '1px solid var(--glass-border)' }}>
+                      <User size={32} />
+                  </div>
+                  <h2 style={{ fontSize: '1.2rem', marginBottom: '2rem', opacity: 0.8 }}>
+                      {isLoginView ? 'Login to continue' : 'Sign up for Premium'}
+                  </h2>
+                  <form onSubmit={async (e) => {
+                      e.preventDefault();
+                      if (!loginEmail || !loginPassword) {
+                          alert('Please enter email and password');
+                          return;
+                      }
+                      
+                      setAuthLoading(true);
+                      try {
+                          const endpoint = isLoginView ? '/auth/login' : '/auth/register';
+                          const res = await axios.post(`${API_URL}${endpoint}`, {
+                              email: loginEmail,
+                              password: loginPassword
+                          });
+                          
+                          if (res.data.success) {
+                              setIsAuthenticated(true);
+                              setUser(res.data.user);
+                              localStorage.setItem('streamify-auth', 'true');
+                              localStorage.setItem('streamify-user', JSON.stringify(res.data.user));
+                          }
+                      } catch (err) {
+                          const msg = err.response?.data?.message || 'Authentication failed';
+                          alert(msg);
+                      } finally {
+                          setAuthLoading(false);
+                      }
+                  }}>
+                      <input 
+                          type="email" 
+                          placeholder="Email or username" 
+                          className="login-input" 
+                          value={loginEmail}
+                          onChange={(e) => setLoginEmail(e.target.value)}
+                          required
+                      />
+                      <input 
+                          type="password" 
+                          placeholder="Password" 
+                          className="login-input" 
+                          value={loginPassword}
+                          onChange={(e) => setLoginPassword(e.target.value)}
+                          required
+                      />
+                      <button type="submit" className="login-btn" disabled={authLoading}>
+                          {authLoading ? 'Please wait...' : (isLoginView ? 'Log In' : 'Sign Up')}
+                      </button>
+                  </form>
+                  <p style={{ marginTop: '2rem', fontSize: '0.8rem', opacity: 0.6 }}>
+                      {isLoginView ? "Don't have an account? " : "Already have an account? "}
+                      <span 
+                          style={{ color: 'var(--primary)', cursor: 'pointer', fontWeight: 'bold' }}
+                          onClick={() => setIsLoginView(!isLoginView)}
+                      >
+                          {isLoginView ? 'Sign up' : 'Log in'}
+                      </span>
+                  </p>
+              </div>
+          </div>
+      );
+  }
+
   return (
     <div className="app-container">
+      {/* Profile Drawer Overlay */}
+      {showProfileDrawer && (
+          <div className="profile-drawer-overlay" onClick={() => setShowProfileDrawer(false)}>
+              <div className="profile-drawer" onClick={(e) => e.stopPropagation()}>
+                  <div className="drawer-header">
+                      <div className="profile-icon" style={{ width: '50px', height: '50px', background: '#a78bfa', color: 'black', fontSize: '1.2rem' }}>
+                          {user?.email?.charAt(0).toUpperCase()}
+                      </div>
+                      <div style={{ flex: 1 }}>
+                          <h2 style={{ margin: 0, fontSize: '1.2rem' }}>{user?.email?.split('@')[0]}</h2>
+                          <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-muted)' }}>View profile</p>
+                      </div>
+                  </div>
+
+                  <div className="drawer-menu">
+                       {/* Saved Accounts (switch) */}
+                       {savedAccounts.filter(a => a.email !== user?.email).map((acc, i) => (
+                           <div key={i} className="drawer-item" onClick={() => {
+                               setUser(acc);
+                               localStorage.setItem('streamify-user', JSON.stringify(acc));
+                               localStorage.setItem('streamify-auth', 'true');
+                               setShowProfileDrawer(false);
+                           }} style={{ gap: '0.8rem' }}>
+                               <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: '#a78bfa', color: 'black', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '0.9rem', flexShrink: 0 }}>
+                                   {acc.email?.charAt(0).toUpperCase()}
+                               </div>
+                               <div style={{ flex: 1 }}>
+                                   <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>{acc.email?.split('@')[0]}</div>
+                                   <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Switch account</div>
+                               </div>
+                           </div>
+                       ))}
+
+                       <div className="drawer-item" onClick={() => { setShowAddAccount(true); setShowProfileDrawer(false); }}>
+                           <Plus size={20} /> Add account
+                       </div>
+
+                       <div className="drawer-item" onClick={() => { setActiveTab('library'); setShowProfileDrawer(false); }}>
+                           <History size={20} /> Recents
+                       </div>
+
+                       <div style={{ height: '1px', background: 'rgba(255,255,255,0.1)', margin: '0.5rem 0' }}></div>
+
+                       <div className="drawer-item" onClick={() => { setActiveSubView('settings'); setShowProfileDrawer(false); }}>
+                           <Settings size={20} /> Settings and privacy
+                       </div>
+
+                       <div className="drawer-item" onClick={() => {
+                           localStorage.removeItem('streamify-auth');
+                           localStorage.removeItem('streamify-user');
+                           setIsAuthenticated(false);
+                           setUser(null);
+                           setShowProfileDrawer(false);
+                       }} style={{ color: '#ef4444' }}>
+                           <LogOut size={20} /> Log out
+                       </div>
+                   </div>
+               </div>
+           </div>
+      )}
+
+
+      {/* Add Account Modal */}
+      {showAddAccount && (
+          <div className="profile-drawer-overlay" onClick={() => setShowAddAccount(false)}>
+              <div className="profile-drawer" onClick={e => e.stopPropagation()} style={{ maxWidth: '360px' }}>
+                  <div className="drawer-header" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '0.5rem' }}>
+                      <button onClick={() => setShowAddAccount(false)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', alignSelf: 'flex-end' }}><X size={20} /></button>
+                      <h2 style={{ margin: 0, fontSize: '1.3rem' }}>{addAccountIsLogin ? 'Log in to another account' : 'Create a new account'}</h2>
+                  </div>
+
+                  <div style={{ padding: '1rem 1.5rem 2rem' }}>
+                      <form onSubmit={async (e) => {
+                          e.preventDefault();
+                          if (!addAccountEmail || !addAccountPassword) return;
+                          setAddAccountLoading(true);
+                          try {
+                              const endpoint = addAccountIsLogin ? '/auth/login' : '/auth/register';
+                              const res = await axios.post(`${API_URL}${endpoint}`, {
+                                  email: addAccountEmail,
+                                  password: addAccountPassword
+                              });
+                              if (res.data.success) {
+                                  const newAcc = res.data.user;
+                                  // Save both current + new account to the saved list
+                                  setSavedAccounts(prev => {
+                                      const base = user ? [...prev.filter(a => a.email !== user.email), user] : [...prev];
+                                      const updated = [...base.filter(a => a.email !== newAcc.email), newAcc];
+                                      localStorage.setItem('streamify-accounts', JSON.stringify(updated));
+                                      return updated;
+                                  });
+                                  // Switch to new account
+                                  setUser(newAcc);
+                                  localStorage.setItem('streamify-user', JSON.stringify(newAcc));
+                                  localStorage.setItem('streamify-auth', 'true');
+                                  setAddAccountEmail('');
+                                  setAddAccountPassword('');
+                                  setShowAddAccount(false);
+                              }
+                          } catch (err) {
+                              const msg = err.response?.data?.message || 'Authentication failed';
+                              alert(msg);
+                          } finally {
+                              setAddAccountLoading(false);
+                          }
+                      }}>
+                          <input
+                              type="email"
+                              placeholder="Email"
+                              className="login-input"
+                              value={addAccountEmail}
+                              onChange={e => setAddAccountEmail(e.target.value)}
+                              required
+                              style={{ marginBottom: '0.8rem' }}
+                          />
+                          <input
+                              type="password"
+                              placeholder="Password"
+                              className="login-input"
+                              value={addAccountPassword}
+                              onChange={e => setAddAccountPassword(e.target.value)}
+                              required
+                              style={{ marginBottom: '1.2rem' }}
+                          />
+                          <button type="submit" className="login-btn" disabled={addAccountLoading}>
+                              {addAccountLoading ? 'Please wait...' : (addAccountIsLogin ? 'Log In' : 'Sign Up')}
+                          </button>
+                      </form>
+                      <p style={{ textAlign: 'center', marginTop: '1rem', fontSize: '0.8rem', opacity: 0.6 }}>
+                          {addAccountIsLogin ? "Don't have an account? " : 'Already have an account? '}
+                          <span style={{ color: 'var(--primary)', cursor: 'pointer', fontWeight: 'bold' }} onClick={() => setAddAccountIsLogin(!addAccountIsLogin)}>
+                              {addAccountIsLogin ? 'Sign up' : 'Log in'}
+                          </span>
+                      </p>
+                  </div>
+              </div>
+          </div>
+      )}
+
+      {/* Settings Modal (Workable) */}
+      {activeSubView === 'settings' && (
+          <div className="video-overlay" style={{ background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(30px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div className="glass" style={{ width: '500px', padding: '3rem', borderRadius: '24px', position: 'relative' }}>
+                  <button className="close-video" onClick={() => setActiveSubView(null)}><X size={24} /></button>
+                  <h2 style={{ fontSize: '2.5rem', marginBottom: '2rem' }}>Settings</h2>
+                  
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <div>
+                              <div style={{ fontWeight: 700, fontSize: '1.1rem' }}>Audio Quality</div>
+                              <div style={{ color: 'var(--text-muted)' }}>Currently: High (320kbps)</div>
+                          </div>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <div>
+                              <div style={{ fontWeight: 700, fontSize: '1.1rem' }}>Content Language</div>
+                              <div style={{ color: 'var(--text-muted)' }}>Tamil, English, Hindi</div>
+                          </div>
+                          <button style={{ color: 'var(--primary)', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600 }}>Change</button>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <div>
+                              <div style={{ fontWeight: 700, fontSize: '1.1rem' }}>Gapless Playback</div>
+                              <div style={{ color: 'var(--text-muted)' }}>Seamless transitions between songs</div>
+                          </div>
+                          <div style={{ width: '40px', height: '20px', background: 'var(--primary)', borderRadius: '10px' }}></div>
+                      </div>
+                  </div>
+              </div>
+          </div>
+      )}
+
       <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
       
       <main className="main-content">
@@ -337,6 +646,24 @@ function App() {
                       Install
                   </button>
               )}
+              <div 
+                className="profile-icon" 
+                style={{ 
+                    cursor: 'pointer', 
+                    width: '32px',
+                    height: '32px',
+                    background: '#a78bfa',
+                    color: 'black',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    borderRadius: '50%',
+                    fontWeight: 700
+                }}
+                onClick={() => setShowProfileDrawer(true)}
+              >
+                {user?.email?.charAt(0).toUpperCase()}
+              </div>
           </div>
         </header>
 
@@ -361,13 +688,12 @@ function App() {
             
             {activeTab === 'home' && (
                 <div style={{ marginBottom: '3rem' }}>
-                   <div className="banner-hero" style={{ padding: '3rem', borderRadius: '12px', background: 'linear-gradient(135deg, rgba(30,215,96,0.15) 0%, rgba(0,0,0,1) 100%)', border: '1px solid var(--glass-border)', position: 'relative', overflow: 'hidden' }}>
+                   <div className="banner-hero" style={{ padding: '3rem', borderRadius: '12px', background: 'linear-gradient(135deg, rgba(99,102,241,0.18) 0%, rgba(10,10,20,1) 100%)', border: '1px solid var(--glass-border)', position: 'relative', overflow: 'hidden' }}>
                         <div style={{ position: 'relative', zIndex: 2 }}>
                             <h2 className="banner-title" style={{ fontWeight: 800, marginBottom: '1rem', color: 'var(--text)' }}>Stream Your Favorites</h2>
                             <p style={{ opacity: 0.8, fontSize: '1rem', maxWidth: '500px', marginBottom: '2rem' }}>Discover thousands of songs and movies in one place. Your perfect entertainment companion.</p>
                             <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
                                 <button onClick={() => setActiveTab('music')} style={{ padding: '0.8rem 2rem', borderRadius: '50px', background: 'var(--primary)', color: 'black', border: 'none', fontWeight: 700, cursor: 'pointer', transition: 'transform 0.2s' }}>Explore Music</button>
-                                <button onClick={() => setActiveTab('drive')} style={{ padding: '0.8rem 2rem', borderRadius: '50px', background: 'transparent', color: 'white', border: '1px solid var(--text-muted)', fontWeight: 700, cursor: 'pointer', transition: 'border-color 0.2s' }}>My Local Drive</button>
                             </div>
                         </div>
                         <div className="banner-circle" style={{ position: 'absolute', right: '5%', top: '-30%', width: '300px', height: '300px', background: 'var(--primary)', filter: 'blur(100px)', opacity: 0.15, borderRadius: '50%' }}></div>
@@ -405,7 +731,7 @@ function App() {
             {activeTab === 'home' && trendingSongs.length > 0 && (
                 <div style={{ marginBottom: '3rem' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-                        <h2 style={{ fontSize: '1.5rem' }}>🔥 Tamil Trending Hits</h2>
+                        <h2 style={{ fontSize: '1.5rem' }}>ðŸ”¥ Tamil Trending Hits</h2>
                         <button onClick={() => { setSearchTerm('tamil trending'); handleGlobalSearch('tamil trending'); }} className="nav-link" style={{ background: 'none', color: 'var(--primary)' }}>View All Hits</button>
                     </div>
                     <div className="media-grid">
@@ -439,83 +765,283 @@ function App() {
           </section>
         )}
 
-        {activeTab === 'discover' && (
-          <section>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
-                <div>
-                    <h1>Online Music Search</h1>
-                    <p style={{ color: 'var(--text-muted)' }}>Found on Global Music Library. Stream anything for free!</p>
-                </div>
-            </div>
+        {(activeTab === 'library' || activeTab === 'liked') && (
+          <section className="library-view">
+            {!selectedPlaylistId && activeTab !== 'liked' ? (
+                <>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '2rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                            <div className="profile-icon" style={{ width: '40px', height: '40px', background: 'var(--primary)', color: 'black' }}>{user?.email?.charAt(0).toUpperCase()}</div>
+                            <h1 style={{ margin: 0 }}>Your Library</h1>
+                        </div>
+                        <div style={{ display: 'flex', gap: '1rem' }}>
+                            <button onClick={handleFolderSelect} className="filter-chip" style={{ display: 'flex', gap: '0.4rem', border: '1px solid var(--glass-border)' }}>
+                                <HardDrive size={18} /> {isScanning ? "Scanning..." : "Add Local Files"}
+                            </button>
+                            <button onClick={createPlaylist} className="filter-chip" style={{ background: 'white', color: 'black' }}>
+                                <Plus size={18} /> Create Playlist
+                            </button>
+                        </div>
+                    </div>
 
-            <div className="media-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))' }}>
-              {discoverResults.length > 0 ? (
-                discoverResults.map(song => (
-                <MediaCard 
-                    key={song._id} 
-                    item={song} 
-                    type="music" 
-                    onClick={setCurrentSong} 
-                    isLiked={favorites.includes(song._id)}
-                    onLike={() => toggleLike(song._id)}
-                />
-              ))
-              ) : isDiscovering ? (
-                <div style={{ textAlign: 'center', gridColumn: 'span 4', padding: '5rem' }}>
-                    <div className="spinner" style={{ width: '40px', height: '40px', border: '4px solid var(--glass-border)', borderTopColor: 'var(--primary)', borderRadius: '50%', animation: 'spin 1s linear infinite', margin: '0 auto 1rem' }}></div>
-                    <p>Searching worldwide...</p>
-                </div>
-              ) : (
-                <div className="glass" style={{ padding: '5rem', textAlign: 'center', gridColumn: 'span 4', opacity: 0.5 }}>
-                    <Search size={48} style={{ marginBottom: '1.5rem' }} />
-                    <h2>Type and press Enter to search Spotify Music!</h2>
-                </div>
-              )}
-            </div>
-          </section>
-        )}
+                    <div className="filter-container">
+                        <button className="filter-chip active">Playlists</button>
+                        <button className="filter-chip">Artists</button>
+                        <button className="filter-chip">Albums</button>
+                        <button className="filter-chip">Downloaded</button>
+                    </div>
 
+                    <div className="library-list">
+                        {/* Liked Songs Entry */}
+                        <div className="song-row" onClick={() => setSelectedPlaylistId('liked')} style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '1rem', cursor: 'pointer' }}>
+                            <div style={{ width: '64px', height: '64px', background: 'linear-gradient(135deg, #4f46e5 0%, #c7d2fe 100%)', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <Heart fill="white" color="white" />
+                            </div>
+                            <div>
+                                <div style={{ fontWeight: 700, fontSize: '1rem' }}>Liked Songs</div>
+                                <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Playlist â€¢ {favorites.length} songs</div>
+                            </div>
+                        </div>
 
-        {activeTab === 'drive' && (
-          <section>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
-                <div>
-                    <h1>My Local Drive</h1>
-                    <p style={{ color: 'var(--text-muted)' }}>Play songs and movies directly from your computer.</p>
-                </div>
-                <button onClick={handleFolderSelect} style={{ padding: '1rem 2rem', borderRadius: '50px', background: 'var(--primary)', color: 'white', border: 'none', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
-                    <Plus size={20} /> Select Media Folder
-                </button>
-            </div>
+                        {/* Local Files Entry */}
+                        <div className="song-row" onClick={() => setSelectedPlaylistId('local')} style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '1rem', cursor: 'pointer' }}>
+                            <div style={{ width: '64px', height: '64px', background: '#1e1b4b', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <HardDrive color="white" />
+                            </div>
+                            <div>
+                                <div style={{ fontWeight: 700, fontSize: '1rem' }}>Local Files</div>
+                                <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>{isScanning ? "Scanning..." : (localDriveMedia.length > 0 ? `${localDriveMedia.length} tracks` : "Select folder to scan tracks")}</div>
+                            </div>
+                        </div>
 
-            {isScanning ? (
-                <div style={{ textAlign: 'center', padding: '5rem' }}>
-                    <div className="spinner" style={{ width: '40px', height: '40px', border: '4px solid var(--glass-border)', borderTopColor: 'var(--primary)', borderRadius: '50%', animation: 'spin 1s linear infinite', margin: '0 auto 1rem' }}></div>
-                    <p>Scanning your files...</p>
-                </div>
-            ) : localDriveMedia.length > 0 ? (
-                <div className="media-grid">
-                    {localDriveMedia.map(item => (
-                        <MediaCard 
-                            key={item._id} 
-                            item={item} 
-                            type={item.category} 
-                            onClick={item.category === 'music' ? setCurrentSong : setPlayingVideo} 
-                            isLiked={favorites.includes(item._id)}
-                            onLike={() => toggleLike(item._id)}
-                        />
-                    ))}
-                </div>
+                        {/* User Playlists */}
+                        {playlists.map(p => (
+                            <div key={p.id} className="song-row" onClick={() => setSelectedPlaylistId(p.id)} style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '1rem', cursor: 'pointer' }}>
+                                <div style={{ width: '64px', height: '64px', background: '#1a1a2e', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <Music color="#b3b3b3" />
+                                </div>
+                                <div>
+                                    <div style={{ fontWeight: 700, fontSize: '1rem' }}>{p.name}</div>
+                                    <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Playlist â€¢ {p.songs.length} songs</div>
+                                </div>
+                            </div>
+                        ))}
+
+                        {playlists.length === 0 && localDriveMedia.length === 0 && (
+                            <div className="glass" style={{ textAlign: 'center', padding: '4rem', opacity: 0.5, marginTop: '2rem' }}>
+                                <Music size={48} style={{ marginBottom: '1rem' }} />
+                                <h3>Your library is waiting</h3>
+                                <p>Create a playlist or add local files to get started.</p>
+                            </div>
+                        )}
+                    </div>
+                </>
             ) : (
-                <div className="glass" style={{ padding: '5rem', textAlign: 'center', border: '2px dashed var(--glass-border)', background: 'transparent' }}>
-                    <HardDrive size={64} style={{ opacity: 0.3, marginBottom: '1.5rem' }} />
-                    <h2 style={{ opacity: 0.8 }}>No Local Media Loaded</h2>
-                    <p style={{ opacity: 0.6, maxWidth: '400px', margin: '0 auto 2rem' }}>Click the button above to select a folder on your computer.</p>
-                    <button onClick={handleFolderSelect} style={{ padding: '0.8rem 2rem', borderRadius: 'var(--radius)', background: 'var(--surface-hover)', color: 'white', border: 'none', fontWeight: 600, cursor: 'pointer' }}>Connect Folder</button>
-                </div>
+                <>
+                    {/* Playlist Detail View */}
+                    <div style={{ marginBottom: '2rem' }}>
+                        <button 
+                            onClick={() => { setSelectedPlaylistId(null); if(activeTab === 'liked') setActiveTab('library'); }}
+                            style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+                        >
+                             &larr; Back to Library
+                        </button>
+                        
+                        <div style={{ display: 'flex', gap: '2rem', alignItems: 'flex-end', marginTop: '1rem' }}>
+                            <div style={{ 
+                                width: '192px', 
+                                height: '192px', 
+                                background: selectedPlaylistId === 'liked' ? 'linear-gradient(135deg, #4f46e5 0%, #c7d2fe 100%)' : (selectedPlaylistId === 'local' ? '#1e1b4b' : '#1a1a2e'),
+                                borderRadius: '8px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                boxShadow: '0 8px 40px rgba(0,0,0,0.5)'
+                            }}>
+                                {selectedPlaylistId === 'liked' ? <Heart size={64} fill="white" color="white" /> : (selectedPlaylistId === 'local' ? <HardDrive size={64} color="white" /> : <Music size={64} color="#b3b3b3" />)}
+                            </div>
+                            <div style={{ flex: 1 }}>
+                                <p style={{ fontSize: '0.85rem', fontWeight: 700, marginBottom: '0.5rem' }}>PLAYLIST</p>
+                                <h1 style={{ fontSize: '4rem', margin: '0 0 1rem', fontWeight: 900 }}>
+                                    {selectedPlaylistId === 'liked' ? 'Liked Songs' : (selectedPlaylistId === 'local' ? 'Local Files' : playlists.find(p => p.id === selectedPlaylistId)?.name)}
+                                </h1>
+                                <p style={{ color: 'var(--text-muted)' }}>{user?.email} â€¢ {
+                                    selectedPlaylistId === 'liked' ? `${favorites.length} songs` : (selectedPlaylistId === 'local' ? `${localDriveMedia.length} tracks` : `${playlists.find(p => p.id === selectedPlaylistId)?.songs.length || 0} songs`)
+                                }</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="glass" style={{ padding: '1rem', border: 'none' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: '50px 1fr 1fr 100px', padding: '1rem', borderBottom: '1px solid var(--glass-border)', color: 'var(--text-muted)', fontSize: '0.9rem', fontWeight: 600 }}>
+                            <div>#</div>
+                            <div>TITLE</div>
+                            <div>ARTIST</div>
+                            <div style={{ textAlign: 'right' }}>ACTION</div>
+                        </div>
+                        {((selectedPlaylistId === 'liked' ? songs.filter(s => favorites.includes(s._id)) : (selectedPlaylistId === 'local' ? localDriveMedia : (playlists.find(p => p.id === selectedPlaylistId)?.songs || [])))).map((song, i) => (
+                            <div key={song._id} 
+                                 className={`song-row ${currentSong?._id === song._id ? 'active' : ''}`}
+                                 style={{ 
+                                     display: 'grid', 
+                                     gridTemplateColumns: '50px 1fr 1fr 100px', 
+                                     padding: '1rem', 
+                                     alignItems: 'center', 
+                                     borderRadius: '12px',
+                                     cursor: 'pointer',
+                                     background: currentSong?._id === song._id ? 'var(--surface-hover)' : 'transparent',
+                                     marginTop: '0.5rem'
+                                 }}
+                                 onClick={() => setCurrentSong(song)}
+                            >
+                                <div style={{ color: currentSong?._id === song._id ? 'var(--primary)' : 'var(--text-muted)' }}>{i + 1}</div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                                    <img src={song.image} style={{ width: '40px', height: '40px', borderRadius: '4px' }} />
+                                    <div style={{ fontWeight: 600 }}>{song.title}</div>
+                                </div>
+                                <div style={{ color: 'var(--text-muted)' }}>{song.artist}</div>
+                                <div style={{ textAlign: 'right', display: 'flex', alignItems: 'center', gap: '0.8rem', justifyContent: 'flex-end' }}>
+                                    <button onClick={(e) => { e.stopPropagation(); addToQueue(song); }} style={{ background: 'none', border: 'none', color: 'var(--text-muted)' }}><Plus size={18} /></button>
+                                    <button onClick={(e) => { e.stopPropagation(); toggleLike(song._id); }} style={{ background: 'none', border: 'none', color: favorites.includes(song._id) ? 'var(--secondary)' : 'var(--text-muted)' }}>
+                                        <Heart size={18} fill={favorites.includes(song._id) ? 'currentColor' : 'none'} />
+                                    </button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </>
             )}
           </section>
         )}
+
+        {activeTab === 'discover' && (
+          <section style={{ padding: '0 0.5rem' }}>
+            {(!searchTerm && discoverResults.length === 0 && !isDiscovering) ? (
+                <>
+                    <div className="top-nav-bar">
+                        <div 
+                            className="profile-icon"
+                            style={{ background: 'var(--primary)', color: 'black', cursor: 'pointer' }}
+                            onClick={() => {
+                                if (window.confirm("Do you want to log out?")) {
+                                    setIsAuthenticated(false);
+                                    localStorage.removeItem('streamify-auth');
+                                    localStorage.removeItem('streamify-user');
+                                }
+                            }}
+                        >
+                            {user?.email?.charAt(0).toUpperCase() || 'U'}
+                        </div>
+                        <h1 className="page-title">Search</h1>
+                        <Camera size={26} color="white" />
+                    </div>
+
+                    <div className="sp-search-bar" onClick={() => document.getElementById('main-search-input').focus()}>
+                        <Search size={22} color="black" />
+                        <input 
+                            id="main-search-input"
+                            type="text" 
+                            placeholder="What do you want to listen to?"
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter') handleGlobalSearch(searchTerm);
+                            }}
+                        />
+                    </div>
+
+                    <div className="section-heading">Start browsing</div>
+                    <div className="category-grid">
+                        <div className="category-card" style={{ backgroundColor: '#E13300' }} onClick={() => handleGlobalSearch('pop music')}>
+                            <span>Music</span>
+                            <img src="https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=300&h=300&fit=crop" alt="Music" />
+                        </div>
+                        <div className="category-card" style={{ backgroundColor: '#1e1b4b' }} onClick={() => handleGlobalSearch('podcasts')}>
+                            <span>Podcasts</span>
+                            <img src="https://images.unsplash.com/photo-1590602847861-f357a9332bbc?w=300&h=300&fit=crop" alt="Podcasts" />
+                        </div>
+                        <div className="category-card" style={{ backgroundColor: '#7c3aed' }} onClick={() => handleGlobalSearch('live event music')}>
+                            <span>Live Events</span>
+                            <img src="https://images.unsplash.com/photo-1459749411175-04bf5292ceea?w=300&h=300&fit=crop" alt="Live Event" />
+                        </div>
+                        <div className="category-card" style={{ backgroundColor: '#312e81' }} onClick={() => handleGlobalSearch('pop hits')}>
+                            <span>Home of I-Pop</span>
+                            <img src="https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?w=300&h=300&fit=crop" alt="I-Pop" />
+                        </div>
+                    </div>
+
+                    <div className="section-heading">Discover something new</div>
+                    <div className="discover-scroll">
+                        <div className="video-card-sp" onClick={() => handleGlobalSearch('tamil trending')}>
+                            <img src="https://images.unsplash.com/photo-1514320291840-2e0a9bf2a9ae?w=400&h=600&fit=crop" alt="Music for you" />
+                            <span>Music for you</span>
+                        </div>
+                        <div className="video-card-sp" onClick={() => handleGlobalSearch('tamil hip hop')}>
+                            <img src="https://images.unsplash.com/photo-1621618806140-5e34addfa2ab?w=400&h=600&fit=crop" alt="Tamil hip hop" />
+                            <span>#tamil hip hop</span>
+                        </div>
+                        <div className="video-card-sp" onClick={() => handleGlobalSearch('peppy songs')}>
+                            <img src="https://images.unsplash.com/photo-1549834125-82d3c48159a3?w=400&h=600&fit=crop" alt="peppy" />
+                            <span>#peppy</span>
+                        </div>
+                        <div className="video-card-sp" onClick={() => handleGlobalSearch('lo-fi')}>
+                            <img src="https://images.unsplash.com/photo-1511379938547-c1f69419868d?w=400&h=600&fit=crop" alt="lofi" />
+                            <span>#lo-fi vibes</span>
+                        </div>
+                    </div>
+
+                    <div className="section-heading">Browse all</div>
+                    <div className="category-grid">
+                        <div className="category-card" style={{ backgroundColor: '#7c6db5' }} onClick={() => handleGlobalSearch('made for you')}>
+                            <span>Made For You</span>
+                            <img src="https://images.unsplash.com/photo-1510915361894-db8b60106cb1?w=300&h=300&fit=crop" alt="Made For You" />
+                        </div>
+                        <div className="category-card" style={{ backgroundColor: '#1e1b4b' }} onClick={() => handleGlobalSearch('new releases')}>
+                            <span>Upcoming releases</span>
+                            <img src="https://images.unsplash.com/photo-1619983081563-430f63602796?w=300&h=300&fit=crop" alt="Upcoming" />
+                        </div>
+                    </div>
+                </>
+            ) : (
+                <>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+                        <div>
+                            <h1>Search Results</h1>
+                            <p style={{ color: 'var(--text-muted)' }}>Top results for "{searchTerm}"</p>
+                        </div>
+                        <button onClick={() => { setSearchTerm(''); setDiscoverResults([]); }} className="filter-chip" style={{ background: 'var(--surface-hover)' }}>Clear</button>
+                    </div>
+
+                    <div className="media-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))' }}>
+                        {discoverResults.length > 0 ? (
+                            discoverResults.map(song => (
+                                <MediaCard 
+                                    key={song._id} 
+                                    item={song} 
+                                    type="music" 
+                                    onClick={setCurrentSong} 
+                                    isLiked={favorites.includes(song._id)}
+                                    onLike={() => toggleLike(song._id)}
+                                />
+                            ))
+                        ) : isDiscovering ? (
+                            <div style={{ textAlign: 'center', gridColumn: '1 / -1', padding: '5rem' }}>
+                                <div className="spinner" style={{ width: '40px', height: '40px', border: '4px solid var(--glass-border)', borderTopColor: 'var(--primary)', borderRadius: '50%', animation: 'spin 1s linear infinite', margin: '0 auto 1rem' }}></div>
+                                <p>Searching the globe...</p>
+                            </div>
+                        ) : (
+                            <div className="glass" style={{ padding: '5rem', textAlign: 'center', gridColumn: '1 / -1', opacity: 0.5 }}>
+                                <Search size={48} style={{ marginBottom: '1.5rem', margin: '0 auto' }} />
+                                <h2>Hit enter to search for matching songs!</h2>
+                            </div>
+                        )}
+                    </div>
+                </>
+            )}
+          </section>
+        )}
+
+
 
         {activeTab === 'music' && (
           <section>
@@ -609,14 +1135,28 @@ function App() {
                          onClick={() => setCurrentSong(song)}
                     >
                         <div style={{ color: currentSong?._id === song._id ? 'var(--primary)' : 'var(--text-muted)' }}>
-                            {currentSong?._id === song._id ? '▶' : i + 1}
+                            {currentSong?._id === song._id ? 'â–¶' : i + 1}
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                             <img src={song.image} style={{ width: '40px', height: '40px', borderRadius: '6px', objectFit: 'cover' }} />
                             <div style={{ fontWeight: 600, color: currentSong?._id === song._id ? 'var(--primary)' : 'white' }}>{song.title}</div>
                         </div>
                         <div style={{ color: 'var(--text-muted)' }}>{song.artist}</div>
-                        <div style={{ textAlign: 'right', display: 'flex', alignItems: 'center', gap: '0.5rem', justifyContent: 'flex-end' }}>
+                        <div style={{ textAlign: 'right', display: 'flex', alignItems: 'center', gap: '0.8rem', justifyContent: 'flex-end' }}>
+                            <button 
+                                onClick={(e) => { e.stopPropagation(); addToQueue(song); }}
+                                title="Play Next"
+                                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
+                            >
+                                <Plus size={18} />
+                            </button>
+                            <button 
+                                onClick={(e) => { e.stopPropagation(); const pId = prompt("Enter Playlist ID (debug) or name?"); if(playlists.length > 0) addToPlaylist(playlists[0].id, song); }}
+                                title="Add to Playlist"
+                                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
+                            >
+                                <Music size={18} />
+                            </button>
                             <button 
                                 onClick={(e) => { e.stopPropagation(); toggleLike(song._id); }}
                                 style={{ background: 'none', border: 'none', color: favorites.includes(song._id) ? 'var(--secondary)' : 'var(--text-muted)', cursor: 'pointer' }}
@@ -712,7 +1252,8 @@ function App() {
 
       <AudioPlayer 
         currentSong={currentSong} 
-        songs={currentSong?.isLocal ? localDriveMedia.filter(m => m.category === 'music') : songs} 
+        songs={songs} 
+        queue={queue}
         onNext={handleNext} 
         onPrev={handlePrev} 
         isShuffle={isShuffle}
@@ -731,3 +1272,4 @@ function App() {
 }
 
 export default App;
+

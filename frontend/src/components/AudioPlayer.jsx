@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { Play, Pause, SkipBack, SkipForward, Volume2, Maximize2, Shuffle, Repeat } from 'lucide-react';
+import { Play, Pause, SkipBack, SkipForward, Volume2, Maximize2, Shuffle, Repeat, ListMusic, Mic2, X } from 'lucide-react';
 
 const AudioPlayer = ({ currentSong, songs, onNext, onPrev, isShuffle, setIsShuffle, isRepeat, setIsRepeat }) => {
   const audioRef = useRef(null);
@@ -9,12 +9,39 @@ const AudioPlayer = ({ currentSong, songs, onNext, onPrev, isShuffle, setIsShuff
   const [duration, setDuration] = useState(0);
   const [volume, setVolume] = useState(1);
   const [isMuted, setIsMuted] = useState(false);
+  const [showQueue, setShowQueue] = useState(false);
+  const [showLyrics, setShowLyrics] = useState(false);
 
   useEffect(() => {
     if (currentSong && audioRef.current) {
         audioRef.current.src = currentSong.url;
         audioRef.current.volume = isMuted ? 0 : volume;
         audioRef.current.play().then(() => setIsPlaying(true)).catch(e => console.error(e));
+
+        if ('mediaSession' in navigator && typeof MediaMetadata !== 'undefined') {
+            try {
+                const metadataObj = {
+                    title: currentSong.title || 'Unknown Title',
+                    artist: currentSong.artist || 'Unknown Artist',
+                    album: 'Streamify Premium',
+                    artwork: currentSong.image ? [{ src: currentSong.image, sizes: '512x512', type: 'image/jpeg' }] : []
+                };
+                
+                try {
+                    navigator.mediaSession.metadata = new MediaMetadata(metadataObj);
+                } catch (constrErr) {
+                    console.warn('MediaMetadata not constructable, skipping:', constrErr);
+                }
+                if (navigator.mediaSession.setActionHandler) {
+                    navigator.mediaSession.setActionHandler('play', () => { audioRef.current.play(); setIsPlaying(true); });
+                    navigator.mediaSession.setActionHandler('pause', () => { audioRef.current.pause(); setIsPlaying(false); });
+                    navigator.mediaSession.setActionHandler('previoustrack', onPrev);
+                    navigator.mediaSession.setActionHandler('nexttrack', onNext);
+                }
+            } catch (e) {
+                console.error("MediaSession integration failed:", e);
+            }
+        }
     }
   }, [currentSong]);
 
@@ -63,6 +90,8 @@ const AudioPlayer = ({ currentSong, songs, onNext, onPrev, isShuffle, setIsShuff
 
   if (!currentSong) return null;
 
+  const nextTrackSuggestions = songs.slice(Math.max(0, songs.findIndex(s => s._id === currentSong._id) + 1), songs.findIndex(s => s._id === currentSong._id) + 6);
+
   return (
     <div className="player-bar" style={{ display: 'grid', gridTemplateColumns: 'minmax(200px, 30%) 1fr minmax(200px, 30%)', gap: '1rem' }}>
       <audio 
@@ -82,6 +111,11 @@ const AudioPlayer = ({ currentSong, songs, onNext, onPrev, isShuffle, setIsShuff
                 style={{ borderRadius: '50%', border: '2px solid var(--primary)' }}
             />
             <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: '10px', height: '10px', background: 'var(--background)', borderRadius: '50%', border: '1px solid var(--primary)' }}></div>
+            {isPlaying && (
+                <div className="visualizer-bars">
+                    <span></span><span></span><span></span><span></span>
+                </div>
+            )}
         </div>
         <div style={{ overflow: 'hidden' }}>
           <div className="card-title" style={{ fontSize: '0.9rem', marginBottom: '0' }}>{currentSong.title}</div>
@@ -126,6 +160,8 @@ const AudioPlayer = ({ currentSong, songs, onNext, onPrev, isShuffle, setIsShuff
       </div>
 
       <div className="player-info mobile-hide-volume" style={{ justifyContent: 'flex-end', gap: '1rem' }}>
+        <button className="control-btn" onClick={() => setShowLyrics(true)} title="Lyrics"><Mic2 size={20} /></button>
+        <button className="control-btn" onClick={() => setShowQueue(!showQueue)} title="Queue"><ListMusic size={20} /></button>
         <button className="control-btn" onClick={() => setIsMuted(!isMuted)}>
             <Volume2 size={20} color={isMuted || volume === 0 ? "var(--text-muted)" : "var(--text)"} />
         </button>
@@ -143,9 +179,93 @@ const AudioPlayer = ({ currentSong, songs, onNext, onPrev, isShuffle, setIsShuff
         <button className="control-btn" onClick={() => document.documentElement.requestFullscreen().catch((e) => console.log(e))}><Maximize2 size={20} /></button>
       </div>
 
+      {showQueue && (
+          <div className="glass" style={{ position: 'absolute', bottom: '100px', right: '0', width: '320px', maxHeight: '500px', overflowY: 'auto', padding: '1.5rem', zIndex: 1000, borderRadius: '16px', border: '1px solid rgba(255,255,255,0.1)', boxShadow: '0 10px 40px rgba(0,0,0,0.8)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                <h3 style={{ margin: 0, fontSize: '1.2rem', color: 'white' }}>Queue</h3>
+              </div>
+              
+              {queue.length > 0 && (
+                <div style={{ marginBottom: '2rem' }}>
+                    <p style={{ fontSize: '0.85rem', color: 'var(--primary)', fontWeight: 700, textTransform: 'uppercase', marginBottom: '1rem' }}>Next in Queue</p>
+                    {queue.map((s, i) => (
+                        <div key={`q-${s._id}-${i}`} style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', marginBottom: '0.8rem' }}>
+                            <img src={s.image} alt={s.title} style={{ width: '40px', height: '40px', borderRadius: '4px', objectFit: 'cover' }} />
+                            <div style={{ flex: 1, overflow: 'hidden' }}>
+                                <div style={{ fontSize: '0.9rem', color: 'white', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>{s.title}</div>
+                                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{s.artist}</div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+              )}
+
+              <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', marginBottom: '1rem' }}>Next from library</p>
+              {nextTrackSuggestions.map((s, i) => (
+                  <div key={s._id} style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', marginBottom: '0.8rem', opacity: 0.8 }}>
+                      <img src={s.image} alt={s.title} style={{ width: '40px', height: '40px', borderRadius: '4px', objectFit: 'cover' }} />
+                      <div style={{ flex: 1, overflow: 'hidden' }}>
+                          <div style={{ fontSize: '0.9rem', color: 'white', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>{s.title}</div>
+                          <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{s.artist}</div>
+                      </div>
+                  </div>
+              ))}
+              <div style={{ textAlign: 'center', fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '1.5rem' }}>End of Suggestions</div>
+          </div>
+      )}
+
+      {showLyrics && (
+          <div className="video-overlay" style={{ background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(30px)' }}>
+              <div style={{ position: 'relative', width: '100%', height: '100%', display: 'flex', flexDirection: 'column', padding: '4rem 2rem' }}>
+                  <button className="close-video" onClick={() => setShowLyrics(false)}><X size={24} /></button>
+                  
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '2rem', marginBottom: '3rem' }}>
+                      <img src={currentSong.image} alt="Cover" style={{ width: '150px', height: '150px', borderRadius: '12px', boxShadow: '0 10px 30px rgba(0,0,0,0.5)' }} />
+                      <div>
+                          <h2 style={{ fontSize: '2.5rem', margin: 0 }}>{currentSong.title}</h2>
+                          <p style={{ fontSize: '1.2rem', color: 'var(--primary)', margin: 0 }}>{currentSong.artist}</p>
+                      </div>
+                  </div>
+
+                  <div style={{ flex: 1, overflowY: 'auto', fontSize: '2rem', fontWeight: 700, lineHeight: '1.8', color: 'var(--text-muted)', maskImage: 'linear-gradient(to bottom, transparent, black 15%, black 85%, transparent)' }} className="lyrics-scroller">
+                      <p style={{ color: 'white', transform: 'scale(1.05)', transition: '0.3s' }}>{/* Active line mock */} 🎵 Instrumental ...</p>
+                      <p>Waiting for lyrics API...</p>
+                      <p>Synced lyrics will appear here.</p>
+                      <p>Sing along to your favorite hits!</p>
+                      <br/><br/><br/><br/>
+                  </div>
+              </div>
+          </div>
+      )}
+
       <style>{`
         .rotating { animation: rotate 10s linear infinite; }
         @keyframes rotate { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        
+        .visualizer-bars {
+            position: absolute;
+            bottom: -5px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 2px;
+            align-items: flex-end;
+            height: 15px;
+        }
+        .visualizer-bars span {
+            width: 3px;
+            background: var(--primary);
+            border-radius: 2px;
+            animation: bounce 0.5s infinite alternate ease-in-out;
+        }
+        .visualizer-bars span:nth-child(2) { animation-delay: 0.1s; }
+        .visualizer-bars span:nth-child(3) { animation-delay: 0.2s; }
+        .visualizer-bars span:nth-child(4) { animation-delay: 0.3s; }
+        @keyframes bounce { 
+            0% { height: 3px; } 
+            100% { height: 15px; } 
+        }
+
         @media (max-width: 600px) {
             .mobile-hide-volume { display: none !important; }
             .player-bar { display: flex !important; flex-wrap: wrap; padding: 0.5rem; gap: 0.5rem; }

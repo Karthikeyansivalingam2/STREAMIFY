@@ -5,14 +5,9 @@ import { Home, Music, Film, Plus, Settings, HardDrive, Heart, Search } from 'luc
 const Sidebar = ({ activeTab, setActiveTab }) => {
   const menuItems = [
     { id: 'home', icon: <Home size={20} />, label: 'Home' },
-    { id: 'music', icon: <Music size={20} />, label: 'Music' },
-    { id: 'movies', icon: <Film size={20} />, label: 'Movies' },
-    { id: 'drive', icon: <HardDrive size={20} />, label: 'My Drive' },
-    { id: 'discover', icon: <Search size={20} style={{ color: 'var(--primary)' }} />, label: 'Discover' },
-    { id: 'liked', icon: <Heart size={20} style={{ color: 'var(--secondary)' }} />, label: 'Liked Songs' },
+    { id: 'discover', icon: <Search size={20} />, label: 'Search' },
+    { id: 'library', icon: <Plus size={20} />, label: 'Your Library' },
   ];
-
-
 
   return (
     <div className="sidebar">
@@ -37,11 +32,16 @@ const Sidebar = ({ activeTab, setActiveTab }) => {
         ))}
       </nav>
       
-      <div style={{ marginTop: 'auto' }}>
-         <a href="#settings" className="nav-link">
-            <Settings size={20} />
-            Settings
-         </a>
+      <div style={{ marginTop: '2rem' }}>
+          <p style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '1rem', padding: '0 1rem' }}>Playlist</p>
+          <a href="#create" className="nav-link" onClick={(e) => { e.preventDefault(); setActiveTab('library'); }}>
+             <Plus size={20} style={{ background: '#2a2a4a', color: 'var(--text-muted)', borderRadius: '4px', padding: '4px' }} />
+             Create Playlist
+          </a>
+          <a href="#liked" className="nav-link" onClick={(e) => { e.preventDefault(); setActiveTab('library'); }}>
+             <Heart size={20} style={{ background: 'linear-gradient(135deg, #4f46e5 0%, #c7d2fe 100%)', color: 'white', borderRadius: '4px', padding: '4px' }} />
+             Liked Songs
+          </a>
       </div>
     </div>
   );

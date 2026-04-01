@@ -11,6 +11,7 @@ const fs = require('fs');
 
 const Song = require('./models/Song');
 const Movie = require('./models/Movie');
+const User = require('./models/User');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -89,6 +90,51 @@ const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/Watchify';
 mongoose.connect(MONGO_URI)
   .then(() => console.log('Connected to MongoDB Atlas: Watchify'))
   .catch((err) => console.error('MongoDB connection error:', err));
+
+// --- AUTHENTICATION ROUTES ---
+app.post('/api/auth/register', async (req, res) => {
+    try {
+        const { email, password } = req.body;
+        
+        // Check if user exists
+        const existingUser = await User.findOne({ email });
+        if (existingUser) {
+            return res.status(400).json({ message: 'User already exists with this email' });
+        }
+        
+        // Create new user (In production, hash the password using bcrypt!)
+        const newUser = new User({ email, password });
+        await newUser.save();
+        
+        res.status(201).json({ success: true, message: 'User created successfully', user: { id: newUser._id, email: newUser.email } });
+    } catch (err) {
+        console.error("Register error:", err);
+        res.status(500).json({ message: 'Server error during registration' });
+    }
+});
+
+app.post('/api/auth/login', async (req, res) => {
+    try {
+        const { email, password } = req.body;
+        
+        // Find user
+        const user = await User.findOne({ email });
+        if (!user) {
+            return res.status(400).json({ message: 'Invalid credentials' });
+        }
+        
+        // Check password (In production, compare hashes!)
+        if (user.password !== password) {
+            return res.status(400).json({ message: 'Invalid credentials' });
+        }
+        
+        // Success
+        res.json({ success: true, message: 'Logged in successfully', user: { id: user._id, email: user.email } });
+    } catch (err) {
+        console.error("Login error:", err);
+        res.status(500).json({ message: 'Server error during login' });
+    }
+});
 
 // --- SONG ROUTES ---
 app.get('/api/songs', async (req, res) => {

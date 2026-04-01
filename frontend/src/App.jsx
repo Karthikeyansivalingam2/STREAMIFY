@@ -607,12 +607,12 @@ function App() {
       <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
       
       <main className="main-content">
-        <header className="search-container">
+        <header className="search-container" style={{ display: activeTab === 'discover' ? 'none' : 'flex' }}>
           <div className="search-wrapper">
               <Search size={18} className="search-icon" />
               <input 
                 type="text" 
-                placeholder={activeTab === 'discover' ? "Search 100 Million+ Global Songs..." : "Search in your library..."}
+                placeholder="Search in your library..."
                 className="search-input"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
@@ -623,15 +623,6 @@ function App() {
           </div>
 
           <div style={{ display: 'flex', gap: '0.8rem' }}>
-              {activeTab === 'discover' && (
-                  <button 
-                      onClick={() => handleGlobalSearch(searchTerm)}
-                      className="filter-chip"
-                      style={{ background: 'var(--primary)', color: 'black', fontWeight: 600 }}
-                  >
-                      Search
-                  </button>
-              )}
               {isInstallable && (
                   <button 
                       onClick={handleInstallClick}

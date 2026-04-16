@@ -25,8 +25,6 @@ if (!fs.existsSync(uploadDir)){
 // Middleware
 const corsOptions = {
     origin: function (origin, callback) {
-        // Allow requests with no origin (like mobile apps or curl requests)
-        // or requests from our specific domains
         const allowedOrigins = [
             'http://localhost:5173',
             'http://localhost:5000',
@@ -34,9 +32,11 @@ const corsOptions = {
             'https://streamify-media.vercel.app'
         ];
         
-        if (!origin || allowedOrigins.indexOf(origin) !== -1 || origin.includes('vercel.app')) {
+        // Allow all vercel subdomains and local development
+        if (!origin || allowedOrigins.indexOf(origin) !== -1 || origin.endsWith('.vercel.app') || origin.includes('vercel.app')) {
             callback(null, true);
         } else {
+            console.log("Blocked by CORS:", origin);
             callback(new Error('Not allowed by CORS'));
         }
     },
@@ -47,6 +47,11 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.use(express.json());
 app.use('/uploads', express.static(uploadDir));
+
+// Health Check for Render Deployment
+app.get('/api/health', (req, res) => {
+    res.json({ status: 'alive', database: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected' });
+});
 
 // Music Discovery Proxy - Triple Redundancy System
 app.get('/api/discover', async (req, res) => {

@@ -1,16 +1,27 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { Play, Pause, SkipBack, SkipForward, Volume2, Maximize2, Shuffle, Repeat, ListMusic, Mic2, X } from 'lucide-react';
+import { Play, Pause, SkipBack, SkipForward, Volume2, Shuffle, Repeat, ListMusic, Heart, X, ChevronDown, MoreVertical } from 'lucide-react';
 
-const AudioPlayer = ({ currentSong, songs, onNext, onPrev, isShuffle, setIsShuffle, isRepeat, setIsRepeat }) => {
+const AudioPlayer = ({ currentSong, songs, onNext, onPrev, isShuffle, setIsShuffle, isRepeat, setIsRepeat, toggleLike, favorites }) => {
   const audioRef = useRef(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
-  const [volume, setVolume] = useState(1);
+  const [volume, setVolume] = useState(() => parseFloat(localStorage.getItem('streamify-volume') || '1'));
   const [isMuted, setIsMuted] = useState(false);
   const [showQueue, setShowQueue] = useState(false);
-  const [showLyrics, setShowLyrics] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  // Clean HTML entities using a more robust regex-based method to avoid DOM issues
+  const cleanText = (text) => {
+    if (!text) return "";
+    return text
+      .replace(/&quot;/g, '"')
+      .replace(/&#039;/g, "'")
+      .replace(/&amp;/g, "&")
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">");
+  };
 
   useEffect(() => {
     if (currentSong && audioRef.current) {
@@ -18,71 +29,46 @@ const AudioPlayer = ({ currentSong, songs, onNext, onPrev, isShuffle, setIsShuff
         audioRef.current.volume = isMuted ? 0 : volume;
         audioRef.current.play().then(() => setIsPlaying(true)).catch(e => console.error(e));
 
-        if ('mediaSession' in navigator && typeof MediaMetadata !== 'undefined') {
-            try {
-                const metadataObj = {
-                    title: currentSong.title || 'Unknown Title',
-                    artist: currentSong.artist || 'Unknown Artist',
-                    album: 'Streamify Premium',
-                    artwork: currentSong.image ? [{ src: currentSong.image, sizes: '512x512', type: 'image/jpeg' }] : []
-                };
-                
-                try {
-                    navigator.mediaSession.metadata = new MediaMetadata(metadataObj);
-                } catch (constrErr) {
-                    console.warn('MediaMetadata not constructable, skipping:', constrErr);
-                }
-                if (navigator.mediaSession.setActionHandler) {
-                    navigator.mediaSession.setActionHandler('play', () => { audioRef.current.play(); setIsPlaying(true); });
-                    navigator.mediaSession.setActionHandler('pause', () => { audioRef.current.pause(); setIsPlaying(false); });
-                    navigator.mediaSession.setActionHandler('previoustrack', onPrev);
-                    navigator.mediaSession.setActionHandler('nexttrack', onNext);
-                }
-            } catch (e) {
-                console.error("MediaSession integration failed:", e);
-            }
+        if ('mediaSession' in navigator) {
+            navigator.mediaSession.metadata = new MediaMetadata({
+                title: cleanText(currentSong.title),
+                artist: cleanText(currentSong.artist),
+                album: 'Streamify Premium',
+                artwork: currentSong.image ? [{ src: currentSong.image, sizes: '512x512', type: 'image/jpeg' }] : []
+            });
         }
     }
   }, [currentSong]);
 
   useEffect(() => {
-      if (audioRef.current) {
-          audioRef.current.volume = isMuted ? 0 : volume;
-      }
+    if (audioRef.current) audioRef.current.volume = isMuted ? 0 : volume;
+    localStorage.setItem('streamify-volume', volume);
   }, [volume, isMuted]);
 
   const togglePlay = () => {
-    if (isPlaying) {
-      audioRef.current.pause();
-    } else {
-      audioRef.current.play();
-    }
+    if (isPlaying) audioRef.current.pause();
+    else audioRef.current.play();
     setIsPlaying(!isPlaying);
   };
 
   const handleTimeUpdate = () => {
     if (!audioRef.current) return;
-    const current = audioRef.current.currentTime;
-    const dur = audioRef.current.duration;
-    setCurrentTime(current);
-    setDuration(dur || 0);
-    setProgress((current / dur) * 100 || 0);
+    const cur = audioRef.current.currentTime;
+    const dur = audioRef.current.duration || 0;
+    setCurrentTime(cur);
+    setDuration(dur);
+    setProgress((cur / dur) * 100 || 0);
   };
 
   const handleSeek = (e) => {
     if (!audioRef.current || !audioRef.current.duration) return;
-    const width = e.target.clientWidth;
-    const rect = e.target.getBoundingClientRect();
-    const clickX = e.clientX - rect.left;
-    const duration = audioRef.current.duration;
-    const newTime = (clickX / width) * duration;
-    if (isFinite(newTime)) {
-        audioRef.current.currentTime = newTime;
-    }
+    const rect = e.currentTarget.getBoundingClientRect();
+    const newTime = ((e.clientX - rect.left) / rect.width) * audioRef.current.duration;
+    audioRef.current.currentTime = newTime;
   };
 
   const formatTime = (time) => {
-    if (!time) return "0:00";
+    if (!time || isNaN(time)) return "0:00";
     const min = Math.floor(time / 60);
     const sec = Math.floor(time % 60);
     return `${min}:${sec < 10 ? '0' : ''}${sec}`;
@@ -90,193 +76,212 @@ const AudioPlayer = ({ currentSong, songs, onNext, onPrev, isShuffle, setIsShuff
 
   if (!currentSong) return null;
 
-  const nextTrackSuggestions = songs.slice(Math.max(0, songs.findIndex(s => s._id === currentSong._id) + 1), songs.findIndex(s => s._id === currentSong._id) + 6);
-
   return (
-    <div className="player-bar" style={{ display: 'grid', gridTemplateColumns: 'minmax(200px, 30%) 1fr minmax(200px, 30%)', gap: '1rem' }}>
-      <audio 
-        ref={audioRef} 
-        onTimeUpdate={handleTimeUpdate} 
-        onEnded={onNext}
-        onPlay={() => setIsPlaying(true)}
-        onPause={() => setIsPlaying(false)}
-      />
-      
-      <div className="player-info">
-        <div style={{ position: 'relative' }}>
-            <img 
-                src={currentSong.image} 
-                alt={currentSong.title} 
-                className={`player-thumb ${isPlaying ? 'rotating' : ''}`} 
-                style={{ borderRadius: '50%', border: '2px solid var(--primary)' }}
-            />
-            <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: '10px', height: '10px', background: 'var(--background)', borderRadius: '50%', border: '1px solid var(--primary)' }}></div>
-            {isPlaying && (
-                <div className="visualizer-bars">
-                    <span></span><span></span><span></span><span></span>
+    <>
+    {/* MINIMIZED PLAYER BAR - BEAUTIFIED */}
+    <div className={`mini-player-host ${isExpanded ? 'min-hidden' : ''}`}>
+        <div className="mini-player" onClick={(e) => {
+            if (!e.target.closest('button') && !e.target.closest('.prog-track')) setIsExpanded(true);
+        }}>
+            <audio ref={audioRef} onTimeUpdate={handleTimeUpdate} onEnded={onNext} onPlay={() => setIsPlaying(true)} onPause={() => setIsPlaying(false)} />
+            
+            <div className="mini-info">
+                <img src={currentSong.image} alt="Art" className={isPlaying ? 'playing-ring' : ''} />
+                <div className="mini-meta">
+                    <div className="mini-title">{cleanText(currentSong.title)}</div>
+                    <div className="mini-artist">{cleanText(currentSong.artist)}</div>
                 </div>
-            )}
-        </div>
-        <div style={{ overflow: 'hidden' }}>
-          <div className="card-title" style={{ fontSize: '0.9rem', marginBottom: '0' }}>{currentSong.title}</div>
-          <div className="card-subtitle" style={{ fontSize: '0.8rem' }}>{currentSong.artist}</div>
-        </div>
-      </div>
+                <button className={`mini-heart ${favorites?.includes(currentSong._id) ? 'active' : ''}`} onClick={(e) => { e.stopPropagation(); toggleLike(currentSong); }}>
+                    <Heart size={20} fill={favorites?.includes(currentSong._id) ? "#818cf8" : "none"} />
+                </button>
+            </div>
 
-      <div className="player-controls" style={{ margin: '0 auto', width: '100%' }}>
-        <div className="control-buttons">
-          <button 
-            className={`control-btn ${isShuffle ? 'active-loop' : ''}`} 
-            onClick={() => setIsShuffle(!isShuffle)}
-            style={{ color: isShuffle ? 'var(--primary)' : 'var(--text-muted)' }}
-          >
-            <Shuffle size={18} />
-          </button>
-          
-          <button className="control-btn" onClick={onPrev}><SkipBack size={20} /></button>
-          
-          <button className="control-btn play" onClick={togglePlay} style={{ width: '45px', height: '45px', border: 'none', background: 'var(--text)', color: 'var(--background)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            {isPlaying ? <Pause size={22} fill="currentColor" /> : <Play size={22} fill="currentColor" />}
-          </button>
-          
-          <button className="control-btn" onClick={onNext}><SkipForward size={20} /></button>
-          
-          <button 
-            className={`control-btn ${isRepeat ? 'active-loop' : ''}`} 
-            onClick={() => setIsRepeat(!isRepeat)}
-            style={{ color: isRepeat ? 'var(--primary)' : 'var(--text-muted)' }}
-          >
-            <Repeat size={18} />
-          </button>
-        </div>
-        
-        <div className="progress-container">
-          <span style={{ minWidth: '35px', textAlign: 'right' }}>{formatTime(currentTime)}</span>
-          <div className="progress-bar" onClick={handleSeek} style={{ flex: 1, height: '4px', background: 'var(--surface-hover)', borderRadius: '2px', cursor: 'pointer', position: 'relative' }}>
-            <div className="progress-fill" style={{ width: `${progress}%`, height: '100%', background: 'var(--primary)', borderRadius: '2px' }}></div>
-          </div>
-          <span style={{ minWidth: '35px' }}>{formatTime(duration)}</span>
-        </div>
-      </div>
+            <div className="mini-controls">
+                <div className="mini-btns">
+                    <button className="mini-btn h-mob" onClick={(e) => { e.stopPropagation(); onPrev(); }}><SkipBack size={20} fill="white" /></button>
+                    <button className="mini-play" onClick={(e) => { e.stopPropagation(); togglePlay(); }}>
+                        {isPlaying ? <Pause size={24} fill="currentColor" /> : <Play size={24} fill="currentColor" />}
+                    </button>
+                    <button className="mini-btn" onClick={(e) => { e.stopPropagation(); onNext(); }}><SkipForward size={20} fill="white" /></button>
+                </div>
+                <div className="prog-track h-mob" onClick={(e) => { e.stopPropagation(); handleSeek(e); }}>
+                    <div className="prog-fill" style={{ width: `${progress}%` }}></div>
+                </div>
+            </div>
 
-      <div className="player-info mobile-hide-volume" style={{ justifyContent: 'flex-end', gap: '1rem' }}>
-        <button className="control-btn" onClick={() => setShowLyrics(true)} title="Lyrics"><Mic2 size={20} /></button>
-        <button className="control-btn" onClick={() => setShowQueue(!showQueue)} title="Queue"><ListMusic size={20} /></button>
-        <button className="control-btn" onClick={() => setIsMuted(!isMuted)}>
-            <Volume2 size={20} color={isMuted || volume === 0 ? "var(--text-muted)" : "var(--text)"} />
-        </button>
-        <div 
-           style={{ width: '100px', height: '4px', background: 'var(--surface-hover)', borderRadius: '2px', cursor: 'pointer', position: 'relative' }}
-           onClick={(e) => {
-               const rect = e.currentTarget.getBoundingClientRect();
-               const val = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-               setVolume(val);
-               setIsMuted(false);
-           }}
-        >
-            <div style={{ width: `${isMuted ? 0 : volume * 100}%`, height: '100%', background: 'var(--text)', borderRadius: '2px' }}></div>
+            <div className="mini-extra h-mob">
+                <button className="mini-btn" onClick={(e) => { e.stopPropagation(); setShowQueue(!showQueue); }}><ListMusic size={20} /></button>
+                <div className="mini-vol">
+                    <Volume2 size={16} />
+                    <div className="prog-track vol" onClick={(e) => { e.stopPropagation(); const r = e.currentTarget.getBoundingClientRect(); setVolume((e.clientX - r.left)/r.width); }}>
+                        <div className="prog-fill" style={{ width: `${volume*100}%` }}></div>
+                    </div>
+                </div>
+            </div>
         </div>
-        <button className="control-btn" onClick={() => document.documentElement.requestFullscreen().catch((e) => console.log(e))}><Maximize2 size={20} /></button>
-      </div>
+    </div>
 
-      {showQueue && (
-          <div className="glass" style={{ position: 'absolute', bottom: '100px', right: '0', width: '320px', maxHeight: '500px', overflowY: 'auto', padding: '1.5rem', zIndex: 1000, borderRadius: '16px', border: '1px solid rgba(255,255,255,0.1)', boxShadow: '0 10px 40px rgba(0,0,0,0.8)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-                <h3 style={{ margin: 0, fontSize: '1.2rem', color: 'white' }}>Queue</h3>
-              </div>
-              
-              {queue.length > 0 && (
-                <div style={{ marginBottom: '2rem' }}>
-                    <p style={{ fontSize: '0.85rem', color: 'var(--primary)', fontWeight: 700, textTransform: 'uppercase', marginBottom: '1rem' }}>Next in Queue</p>
-                    {queue.map((s, i) => (
-                        <div key={`q-${s._id}-${i}`} style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', marginBottom: '0.8rem' }}>
-                            <img src={s.image} alt={s.title} style={{ width: '40px', height: '40px', borderRadius: '4px', objectFit: 'cover' }} />
-                            <div style={{ flex: 1, overflow: 'hidden' }}>
-                                <div style={{ fontSize: '0.9rem', color: 'white', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>{s.title}</div>
-                                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{s.artist}</div>
+    {/* MASTERPIECE FULLSCREEN VIEW */}
+    {isExpanded && (
+        <div className="master-fs">
+            <div className="fs-glow-bg" style={{ backgroundColor: '#222', backgroundImage: `radial-gradient(circle at center, rgba(129, 140, 248, 0.15) 0%, transparent 70%), url(${currentSong.image})` }}></div>
+            
+            <div className="fs-navbar">
+                <button className="fs-back" onClick={() => setIsExpanded(false)}><ChevronDown size={32} /></button>
+                <div className="fs-header-text">
+                    <span>PLAYING FROM YOUR LIBRARY</span>
+                    <strong>Streamify Premium</strong>
+                </div>
+                <button className="fs-opt"><MoreVertical size={24} /></button>
+            </div>
+
+            <div className="fs-content">
+                <div className="fs-visual-section">
+                    <img src={currentSong.image} alt="Art" className={`fs-hero-art ${isPlaying ? 'pulse' : ''}`} />
+                </div>
+                
+                <div className="fs-interaction-section">
+                    <div className="fs-track-info">
+                        <div>
+                            <h1 className="fs-main-title">{cleanText(currentSong.title)}</h1>
+                            <p className="fs-main-artist">{cleanText(currentSong.artist)}</p>
+                        </div>
+                        <button className={`fs-heart ${favorites?.includes(currentSong._id) ? 'active' : ''}`} onClick={() => toggleLike(currentSong)}>
+                            <Heart size={32} fill={favorites?.includes(currentSong._id) ? "#818cf8" : "none"} />
+                        </button>
+                    </div>
+
+                    <div className="fs-playback-engine">
+                        <div className="fs-scrubber-box">
+                            <div className="fs-scrubber" onClick={handleSeek}>
+                                <div className="fs-scrubber-fill" style={{ width: `${progress}%` }}></div>
+                                <div className="fs-scrubber-knob" style={{ left: `${progress}%` }}></div>
+                            </div>
+                            <div className="fs-time-labels">
+                                <span>{formatTime(currentTime)}</span>
+                                <span>{formatTime(duration)}</span>
                             </div>
                         </div>
-                    ))}
+
+                        <div className="fs-main-btns">
+                            <button className="fs-sec-btn h-mob" onClick={() => setIsShuffle(!isShuffle)}>
+                                <Shuffle size={24} color={isShuffle ? '#818cf8' : 'rgba(255,255,255,0.5)'} />
+                            </button>
+                            <button className="fs-skip-xl" onClick={onPrev}><SkipBack size={40} fill="white" /></button>
+                            <button className="fs-play-xl" onClick={togglePlay}>
+                                {isPlaying ? <Pause size={40} fill="black" /> : <Play size={40} fill="black" />}
+                            </button>
+                            <button className="fs-skip-xl" onClick={onNext}><SkipForward size={40} fill="white" /></button>
+                            <button className="fs-sec-btn h-mob" onClick={() => setIsRepeat(!isRepeat)}>
+                                <Repeat size={24} color={isRepeat ? '#818cf8' : 'rgba(255,255,255,0.5)'} />
+                            </button>
+                        </div>
+
+                        <div className="fs-footer-row">
+                            <button className="fs-footer-btn"><ListMusic size={24} /></button>
+                            <div className="fs-vol-slider h-mob">
+                                <Volume2 size={20} />
+                                <div className="fs-scrubber vol" onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); setVolume((e.clientX - r.left)/r.width); }}>
+                                    <div className="fs-scrubber-fill" style={{ width: `${volume*100}%` }}></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-              )}
+            </div>
+        </div>
+    )}
 
-              <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', marginBottom: '1rem' }}>Next from library</p>
-              {nextTrackSuggestions.map((s, i) => (
-                  <div key={s._id} style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', marginBottom: '0.8rem', opacity: 0.8 }}>
-                      <img src={s.image} alt={s.title} style={{ width: '40px', height: '40px', borderRadius: '4px', objectFit: 'cover' }} />
-                      <div style={{ flex: 1, overflow: 'hidden' }}>
-                          <div style={{ fontSize: '0.9rem', color: 'white', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>{s.title}</div>
-                          <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{s.artist}</div>
-                      </div>
-                  </div>
-              ))}
-              <div style={{ textAlign: 'center', fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '1.5rem' }}>End of Suggestions</div>
-          </div>
-      )}
+    <style>{`
+        /* Minimalist Mini Player */
+        .mini-player-host { position: fixed; bottom: 85px; left: 1rem; right: 1rem; z-index: 5000; transition: 0.5s ease; }
+        .mini-player-host.min-hidden { transform: translateY(150%) scale(0.9); opacity: 0; pointer-events: none; }
+        .mini-player { 
+            background: rgba(20, 20, 20, 0.8); backdrop-filter: blur(25px); border: 1px solid rgba(255,255,255,0.05);
+            border-radius: 12px; padding: 0.6rem 1rem; display: flex; align-items: center; justify-content: space-between;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.4);
+        }
+        .mini-info { display: flex; align-items: center; gap: 0.75rem; flex: 1; min-width: 0; }
+        .mini-info img { width: 45px; height: 45px; border-radius: 6px; object-fit: cover; }
+        .playing-ring { outline: 2px solid #818cf8; outline-offset: 2px; }
+        .mini-meta { overflow: hidden; }
+        .mini-title { font-weight: 700; font-size: 0.9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .mini-artist { font-size: 0.75rem; color: #999; }
+        .mini-heart { background: none; border: none; color: #555; cursor: pointer; padding: 0.5rem; }
+        .mini-heart.active { color: #818cf8; }
 
-      {showLyrics && (
-          <div className="video-overlay" style={{ background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(30px)' }}>
-              <div style={{ position: 'relative', width: '100%', height: '100%', display: 'flex', flexDirection: 'column', padding: '4rem 2rem' }}>
-                  <button className="close-video" onClick={() => setShowLyrics(false)}><X size={24} /></button>
-                  
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '2rem', marginBottom: '3rem' }}>
-                      <img src={currentSong.image} alt="Cover" style={{ width: '150px', height: '150px', borderRadius: '12px', boxShadow: '0 10px 30px rgba(0,0,0,0.5)' }} />
-                      <div>
-                          <h2 style={{ fontSize: '2.5rem', margin: 0 }}>{currentSong.title}</h2>
-                          <p style={{ fontSize: '1.2rem', color: 'var(--primary)', margin: 0 }}>{currentSong.artist}</p>
-                      </div>
-                  </div>
-
-                  <div style={{ flex: 1, overflowY: 'auto', fontSize: '2rem', fontWeight: 700, lineHeight: '1.8', color: 'var(--text-muted)', maskImage: 'linear-gradient(to bottom, transparent, black 15%, black 85%, transparent)' }} className="lyrics-scroller">
-                      <p style={{ color: 'white', transform: 'scale(1.05)', transition: '0.3s' }}>{/* Active line mock */} 🎵 Instrumental ...</p>
-                      <p>Waiting for lyrics API...</p>
-                      <p>Synced lyrics will appear here.</p>
-                      <p>Sing along to your favorite hits!</p>
-                      <br/><br/><br/><br/>
-                  </div>
-              </div>
-          </div>
-      )}
-
-      <style>{`
-        .rotating { animation: rotate 10s linear infinite; }
-        @keyframes rotate { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        .mini-controls { flex: 2; display: flex; flex-direction: column; align-items: center; gap: 0.4rem; }
+        .mini-btns { display: flex; align-items: center; gap: 1.5rem; }
+        .mini-play { width: 40px; height: 40px; background: white; border: none; border-radius: 50%; display: flex; align-items: center; justifyContent: center; cursor: pointer; }
+        .mini-btn { background: none; border: none; color: white; cursor: pointer; }
+        .prog-track { width: 100%; max-width: 400px; height: 4px; background: rgba(255,255,255,0.1); border-radius: 2px; overflow: hidden; cursor: pointer; }
+        .prog-fill { height: 100%; background: #818cf8; border-radius: 2px; }
         
-        .visualizer-bars {
-            position: absolute;
-            bottom: -5px;
-            left: 50%;
-            transform: translateX(-50%);
-            display: flex;
-            gap: 2px;
-            align-items: flex-end;
-            height: 15px;
-        }
-        .visualizer-bars span {
-            width: 3px;
-            background: var(--primary);
-            border-radius: 2px;
-            animation: bounce 0.5s infinite alternate ease-in-out;
-        }
-        .visualizer-bars span:nth-child(2) { animation-delay: 0.1s; }
-        .visualizer-bars span:nth-child(3) { animation-delay: 0.2s; }
-        .visualizer-bars span:nth-child(4) { animation-delay: 0.3s; }
-        @keyframes bounce { 
-            0% { height: 3px; } 
-            100% { height: 15px; } 
+        .mini-extra { flex: 1; display: flex; justify-content: flex-end; align-items: center; gap: 1.5rem; }
+        .mini-vol { display: flex; align-items: center; gap: 0.5rem; width: 100px; }
+        .prog-track.vol { max-width: 80px; }
+
+        /* Masterpiece Fullscreen */
+        .master-fs { position: fixed; inset: 0; background: #000; z-index: 10000; display: flex; flex-direction: column; animation: fsEnter 0.4s cubic-bezier(0,0,0.2,1); overflow: hidden; }
+        @keyframes fsEnter { from { transform: translateY(100px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        .fs-glow-bg { position: absolute; inset: 0; background-size: cover; background-position: center; mix-blend-mode: lighten; filter: blur(120px) brightness(0.3); opacity: 0.6; z-index: -1; }
+        
+        .fs-navbar { display: flex; justify-content: space-between; align-items: center; padding: 1.5rem 2rem; }
+        .fs-back, .fs-opt { background: none; border: none; color: white; cursor: pointer; opacity: 0.7; }
+        .fs-header-text { display: flex; flex-direction: column; align-items: center; gap: 0.2rem; }
+        .fs-header-text span { font-size: 0.7rem; letter-spacing: 2px; color: #888; font-weight: 700; }
+        .fs-header-text strong { font-size: 0.85rem; }
+
+        .fs-content { flex: 1; display: flex; flex-direction: column; padding: 0 2rem 3rem; gap: 2rem; }
+        .fs-visual-section { flex: 1; display: flex; align-items: center; justify-content: center; }
+        .fs-hero-art { width: 100%; max-width: 400px; aspect-ratio: 1/1; border-radius: 20px; object-fit: cover; box-shadow: 0 30px 60px rgba(0,0,0,0.6); }
+        .fs-hero-art.pulse { transform: scale(1.02); transition: 0.5s; }
+
+        .fs-interaction-section { display: flex; flex-direction: column; gap: 1.5rem; }
+        .fs-track-info { display: flex; justify-content: space-between; align-items: center; }
+        .fs-main-title { font-size: 1.75rem; font-weight: 850; margin: 0; letter-spacing: -0.5px; }
+        .fs-main-artist { font-size: 1.1rem; color: #818cf8; margin: 0.3rem 0 0; font-weight: 500; }
+        .fs-heart { background: none; border: none; color: #444; cursor: pointer; transition: 0.2s; }
+        .fs-heart.active { color: #818cf8; }
+
+        .fs-scrubber-box { width: 100%; display: flex; flex-direction: column; gap: 0.5rem; }
+        .fs-scrubber { width: 100%; height: 4px; background: rgba(255,255,255,0.15); border-radius: 10px; position: relative; cursor: pointer; }
+        .fs-scrubber-fill { height: 100%; background: white; border-radius: 10px; }
+        .fs-scrubber-knob { position: absolute; top: 50%; width: 12px; height: 12px; background: white; border-radius: 50%; transform: translate(-50%, -50%); box-shadow: 0 0 10px rgba(0,0,0,0.5); display: none; }
+        .fs-scrubber:hover .fs-scrubber-knob { display: block; }
+        .fs-time-labels { display: flex; justify-content: space-between; font-size: 0.8rem; color: #777; font-weight: 600; }
+
+        .fs-main-btns { display: flex; justify-content: space-between; align-items: center; padding: 1rem 0; }
+        .fs-play-xl { width: 75px; height: 75px; background: white; border-radius: 50%; border: none; display: flex; align-items: center; justifyContent: center; cursor: pointer; box-shadow: 0 10px 30px rgba(255,255,255,0.2); }
+        .fs-skip-xl, .fs-sec-btn { background: none; border: none; color: white; cursor: pointer; }
+
+        .fs-footer-row { display: flex; justify-content: space-between; align-items: center; opacity: 0.7; }
+        .fs-footer-btn { background: none; border: none; color: white; }
+        .fs-vol-slider { flex: 1; max-width: 150px; display: flex; align-items: center; gap: 1rem; }
+
+        /* Desktop Layout Refinement */
+        @media (min-width: 1024px) {
+            .fs-content { flex-direction: row; align-items: center; gap: 5%; padding: 0 8% 4rem; }
+            .fs-visual-section { flex: 1.2; }
+            .fs-hero-art { max-width: 550px; }
+            .fs-interaction-section { flex: 1; gap: 3rem; }
+            .fs-main-title { font-size: 3.5rem; }
+            .fs-main-artist { font-size: 1.8rem; }
+            .fs-play-xl { width: 90px; height: 90px; }
         }
 
-        @media (max-width: 600px) {
-            .mobile-hide-volume { display: none !important; }
-            .player-bar { display: flex !important; flex-wrap: wrap; padding: 0.5rem; gap: 0.5rem; }
-            .player-info { width: 100%; justify-content: flex-start; }
-            .player-controls { width: 100%; margin: 0; }
-            .control-buttons { gap: 1rem; }
+        @media (max-width: 768px) {
+            .h-mob { display: none !important; }
+            .mini-player-host { bottom: 85px; left: 8px; right: 8px; }
+            .mini-player { background: #1a1a1a; border-radius: 8px; }
+            .fs-content { padding: 0 1.5rem 2rem; }
+            .fs-hero-art { max-width: 320px; }
+            .fs-main-btns { padding: 0.5rem 0; }
+            .fs-main-title { font-size: 1.5rem; }
         }
-      `}</style>
-    </div>
+    `}</style>
+    </>
   );
 };
 
 export default AudioPlayer;
-

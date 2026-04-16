@@ -321,15 +321,15 @@ function App() {
 
   const handleGlobalSearch = async (query, stayOnHome = false) => {
     if (!query) return;
-    console.log("Searching for:", query);
+    console.log("Discovery search:", query);
     setIsDiscovering(true);
     setSearchTerm(query);
+    setSelectedGenre('All'); // Reset genre filter when searching worldwide
+    
     if (!stayOnHome && activeTab !== 'discover') setActiveTab('discover');
     
     try {
-        const isExplicitTamil = query.toLowerCase().includes('tamil');
-        const searchQuery = isExplicitTamil ? query : `${query} tamil`;
-        const res = await axios.get(`${import.meta.env.VITE_API_URL}/discover?query=${encodeURIComponent(searchQuery)}`);
+        const res = await axios.get(`${API_URL}/discover?query=${encodeURIComponent(query)}`);
         
         const rawData = res.data?.data?.results || res.data?.data?.songs || res.data?.data || res.data?.results || [];
         const items = Array.isArray(rawData) ? rawData : (rawData.results || rawData.songs || []);
@@ -358,8 +358,14 @@ function App() {
         }
     } catch (err) {
         console.error("Discovery error:", err);
-        // Default to showing your library's Tamil songs if anything goes wrong
-        setDiscoverResults(songs.slice(0, 20));
+        // ULTIMATE FALLBACK: Hardcoded Tamil Hits if all else fails
+        const fallbackSongs = [
+            { _id: 'fallback-1', title: 'Naa Ready', artist: 'Anirudh Ravichander', image: 'https://c.saavncdn.com/026/Naa-Ready-From-Leo-Tamil-2023-20230616113250-500x500.jpg', url: '', category: 'Trending' },
+            { _id: 'fallback-2', title: 'Hukum', artist: 'Anirudh Ravichander', image: 'https://c.saavncdn.com/932/Jailer-Tamil-2023-20230814144445-500x500.jpg', url: '', category: 'Trending' },
+            { _id: 'fallback-3', title: 'Arabic Kuthu', artist: 'Anirudh Ravichander', image: 'https://c.saavncdn.com/152/Beast-Tamil-2022-20220427131015-500x500.jpg', url: '', category: 'Trending' },
+            { _id: 'fallback-4', title: 'Kaavaalaa', artist: 'Anirudh Ravichander', image: 'https://c.saavncdn.com/932/Jailer-Tamil-2023-20230814144445-500x500.jpg', url: '', category: 'Trending' }
+        ];
+        setDiscoverResults([...songs.slice(0, 10), ...fallbackSongs]);
     } finally {
         setIsDiscovering(false);
     }
@@ -1040,41 +1046,46 @@ function App() {
         )}
 
         {activeTab === 'discover' && (
-          <section style={{ padding: '0 0.5rem' }}>
-            {(!searchTerm && discoverResults.length === 0 && !isDiscovering) ? (
-                <>
-                    <div className="top-nav-bar">
-                        <div 
-                            className="profile-icon"
-                            style={{ background: 'var(--primary)', color: 'black', cursor: 'pointer' }}
-                            onClick={() => {
-                                if (window.confirm("Do you want to log out?")) {
-                                    setIsAuthenticated(false);
-                                    localStorage.removeItem('streamify-auth');
-                                    localStorage.removeItem('streamify-user');
-                                }
-                            }}
-                        >
-                            {user?.email?.charAt(0).toUpperCase() || 'U'}
-                        </div>
-                        <h1 className="page-title">Search</h1>
-                        <Camera size={26} color="white" />
-                    </div>
+          <section className="search-page-sp" style={{ paddingBottom: '160px' }}>
+            <div className="top-nav-bar" style={{ padding: '1.5rem 1rem 1rem' }}>
+                <div 
+                    className="profile-icon" 
+                    style={{ 
+                        background: 'linear-gradient(135deg, #a78bfa, #6366f1)',
+                        color: 'white',
+                        width: '35px',
+                        height: '35px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        borderRadius: '50%',
+                        fontWeight: 700
+                    }}
+                    onClick={() => setShowProfileDrawer(true)}
+                >
+                    {user?.email?.charAt(0).toUpperCase() || 'U'}
+                </div>
+                <h1 className="page-title">Search</h1>
+                <Camera size={26} color="white" />
+            </div>
 
-                    <div className="sp-search-bar" onClick={() => document.getElementById('main-search-input').focus()}>
-                        <Search size={22} color="black" />
-                        <input 
-                            id="main-search-input"
-                            type="text" 
-                            placeholder="What do you want to listen to?"
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            onKeyDown={(e) => {
-                                if (e.key === 'Enter') handleGlobalSearch(searchTerm);
-                            }}
-                        />
-                    </div>
+            <div className="sp-search-bar" onClick={() => document.getElementById('main-search-input').focus()}>
+                <Search size={22} color="black" />
+                <input 
+                    id="main-search-input"
+                    type="text" 
+                    placeholder="What do you want to listen to?"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    onKeyDown={(e) => {
+                        if (e.key === 'Enter') handleGlobalSearch(searchTerm);
+                    }}
+                />
+            </div>
 
+            {/* If Not searching and no results, show Discovery categories */}
+            {(!isDiscovering && discoverResults.length === 0) ? (
+                <div style={{ padding: '0 1rem' }}>
                     <div className="section-heading">Start browsing</div>
                     <div className="category-grid">
                         <div className="category-card" style={{ backgroundColor: '#E13300' }} onClick={() => handleGlobalSearch('tamil top hits')}>
@@ -1105,36 +1116,16 @@ function App() {
                             <img src="https://images.unsplash.com/photo-1621618806140-5e34addfa2ab?w=400&h=600&fit=crop" alt="Tamil hip hop" />
                             <span>#tamil hip hop</span>
                         </div>
-                        <div className="video-card-sp" onClick={() => handleGlobalSearch('peppy songs')}>
-                            <img src="https://images.unsplash.com/photo-1549834125-82d3c48159a3?w=400&h=600&fit=crop" alt="peppy" />
-                            <span>#peppy</span>
-                        </div>
-                        <div className="video-card-sp" onClick={() => handleGlobalSearch('lo-fi')}>
-                            <img src="https://images.unsplash.com/photo-1511379938547-c1f69419868d?w=400&h=600&fit=crop" alt="lofi" />
-                            <span>#lo-fi vibes</span>
-                        </div>
                     </div>
-
-                    <div className="section-heading">Browse all</div>
-                    <div className="category-grid">
-                        <div className="category-card" style={{ backgroundColor: '#7c6db5' }} onClick={() => handleGlobalSearch('made for you')}>
-                            <span>Made For You</span>
-                            <img src="https://images.unsplash.com/photo-1510915361894-db8b60106cb1?w=300&h=300&fit=crop" alt="Made For You" />
-                        </div>
-                        <div className="category-card" style={{ backgroundColor: '#1e1b4b' }} onClick={() => handleGlobalSearch('new releases')}>
-                            <span>Upcoming releases</span>
-                            <img src="https://images.unsplash.com/photo-1619983081563-430f63602796?w=300&h=300&fit=crop" alt="Upcoming" />
-                        </div>
-                    </div>
-                </>
+                </div>
             ) : (
-                <>
+                <div style={{ padding: '0 1rem' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
                         <div>
                             <h1>Search Results</h1>
                             <p style={{ color: 'var(--text-muted)' }}>Top results for "{searchTerm}"</p>
                         </div>
-                        <button onClick={() => { setSearchTerm(''); setDiscoverResults([]); }} className="filter-chip" style={{ background: 'var(--surface-hover)' }}>Clear</button>
+                        <button onClick={() => { setSearchTerm(''); setDiscoverResults([]); setSelectedGenre('All'); }} className="filter-chip" style={{ background: 'var(--surface-hover)' }}>Clear</button>
                     </div>
 
                     <div className="media-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))' }}>
@@ -1154,19 +1145,14 @@ function App() {
                                 <div className="spinner" style={{ width: '40px', height: '40px', border: '4px solid var(--glass-border)', borderTopColor: 'var(--primary)', borderRadius: '50%', animation: 'spin 1s linear infinite', margin: '0 auto 1rem' }}></div>
                                 <p>Searching the globe...</p>
                             </div>
-                        ) : searchTerm ? (
+                        ) : (
                             <div className="glass" style={{ padding: '5rem', textAlign: 'center', gridColumn: '1 / -1' }}>
                                 <h3>No results for "{searchTerm}"</h3>
                                 <p style={{ color: 'var(--text-muted)', marginTop: '0.5rem' }}>Try searching for a movie name like "Leo" or an artist like "Anirudh".</p>
                             </div>
-                        ) : (
-                            <div className="glass" style={{ padding: '5rem', textAlign: 'center', gridColumn: '1 / -1', opacity: 0.5 }}>
-                                <Search size={48} style={{ marginBottom: '1.5rem', margin: '0 auto' }} />
-                                <h2>Search for your favorite Tamil tracks!</h2>
-                            </div>
                         )}
                     </div>
-                </>
+                </div>
             )}
           </section>
         )}
@@ -1428,6 +1414,8 @@ function App() {
         setIsShuffle={setIsShuffle}
         isRepeat={isRepeat}
         setIsRepeat={setIsRepeat}
+        toggleLike={toggleLike}
+        favorites={favorites}
       />
 
       <VideoModal 

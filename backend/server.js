@@ -59,15 +59,21 @@ app.get('/api/discover', async (req, res) => {
         }
     }
 
-    // FINAL FALLBACK: Simplify query (e.g., just the first word)
-    const simpleQuery = query.split(' ')[0];
-    try {
-        const response = await axios.get(`https://saavn.dev/api/search/songs?query=${encodeURIComponent(simpleQuery)}`, { timeout: 3000 });
-        return res.json(response.data);
-    } catch (e) {
-        console.error("All discovery sources failed.");
-        res.status(503).json({ success: false, message: "Music servers are busy. Please try again." });
+    // FINAL FALLBACK: Simplify query or try trending content
+    const finalFallbackQueries = [query.split(' ')[0], 'tamil trending', 'latest hits tamil'];
+    for (const fbQuery of finalFallbackQueries) {
+        try {
+            const response = await axios.get(`https://saavn.dev/api/search/songs?query=${encodeURIComponent(fbQuery)}`, { timeout: 3000 });
+            if (response.data && (response.data.data || response.data.results)) {
+                return res.json(response.data);
+            }
+        } catch (e) {
+            continue;
+        }
     }
+
+    console.error("All discovery sources and fallbacks failed.");
+    res.status(503).json({ success: false, message: "Music servers are busy. Please try again." });
 });
 
 

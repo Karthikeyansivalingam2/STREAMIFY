@@ -11,6 +11,7 @@ const BASE_API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
 const API_URL = BASE_API_URL.endsWith('/api') ? BASE_API_URL : `${BASE_API_URL}/api`;
 
 
+// Streamify Music App - V1.1 (Rebuild)
 function App() {
   const [activeTab, setActiveTab] = useState('home');
   const [showAddMusic, setShowAddMusic] = useState(false);
@@ -57,9 +58,41 @@ function App() {
   const [addAccountLoading, setAddAccountLoading] = useState(false);
   const [savedAccounts, setSavedAccounts] = useState(() => JSON.parse(localStorage.getItem('streamify-accounts') || '[]'));
 
+  const [likedSongsData, setLikedSongsData] = useState(() => JSON.parse(localStorage.getItem('streamify-liked-data') || '[]'));
+
+  const toggleLike = (songOrId) => {
+      const isObject = typeof songOrId === 'object' && songOrId !== null;
+      const songId = isObject ? songOrId._id : songOrId;
+      
+      setFavorites(prev => {
+          const isLiked = prev.includes(songId);
+          if (isLiked) {
+              setLikedSongsData(ld => ld.filter(s => s._id !== songId));
+              const newFavs = prev.filter(id => id !== songId);
+              localStorage.setItem('streamify-favorites', JSON.stringify(newFavs));
+              return newFavs;
+          } else {
+              if (isObject) {
+                  setLikedSongsData(ld => [...ld, songOrId]);
+              } else {
+                  // If we only have ID, try to find it in current lists
+                  const found = [...songs, ...trendingSongs, ...discoverResults].find(s => s._id === songId);
+                  if (found) setLikedSongsData(ld => [...ld, found]);
+              }
+              const newFavs = [...prev, songId];
+              localStorage.setItem('streamify-favorites', JSON.stringify(newFavs));
+              return newFavs;
+          }
+      });
+  };
+
   useEffect(() => {
     localStorage.setItem('streamify-favorites', JSON.stringify(favorites));
   }, [favorites]);
+
+  useEffect(() => {
+    localStorage.setItem('streamify-liked-data', JSON.stringify(likedSongsData));
+  }, [likedSongsData]);
 
   useEffect(() => {
     localStorage.setItem('streamify-playlists', JSON.stringify(playlists));
@@ -68,6 +101,18 @@ function App() {
   useEffect(() => {
     localStorage.setItem('streamify-recents', JSON.stringify(recentlyPlayed));
   }, [recentlyPlayed]);
+
+  // Cleanup effect to remove duplicates from memory
+  useEffect(() => {
+    if (likedSongsData.length > 0) {
+        const unique = likedSongsData.filter((song, index, self) =>
+            index === self.findIndex((t) => t._id === song._id)
+        );
+        if (unique.length !== likedSongsData.length) {
+            setLikedSongsData(unique);
+        }
+    }
+  }, [likedSongsData]);
 
 
   useEffect(() => {
@@ -113,11 +158,20 @@ function App() {
         axios.get(`${API_URL}/movies`),
         axios.get(`${API_URL}/discover?query=latest+tamil`)
       ]);
-      setSongs(songsRes.data || []);
+      
+      const rawSongs = songsRes.data || [];
+      // Don't strictly filter 'songs' state, but only 'filteredSongs' for UI
+      setSongs(rawSongs);
+      
+      const tamilSongs = rawSongs.filter(s => {
+          const content = (s.title + s.artist + s.category + (s.language || '')).toLowerCase();
+          return content.includes('tamil') || s.category === 'uploaded';
+      });
+      setFilteredSongs(tamilSongs.length > 0 ? tamilSongs : rawSongs);
       setMovies(moviesRes.data || []);
       
       if (trendingRes.data?.data?.results) {
-         const hits = trendingRes.data.data.results.slice(0, 8).map(item => ({
+         const hits = trendingRes.data.data.results.map(item => ({
             _id: item.id,
             title: item.name,
             artist: item.primaryArtists || item.artists?.primary?.[0]?.name || "Online Hit",
@@ -126,6 +180,22 @@ function App() {
             category: 'Trending'
          }));
          setTrendingSongs(hits);
+         
+      const storedFavs = [...new Set(JSON.parse(localStorage.getItem('streamify-favorites') || '[]'))];
+      const storedData = JSON.parse(localStorage.getItem('streamify-liked-data') || '[]');
+      
+      const syncedData = [...storedData];
+      storedFavs.forEach(id => {
+          if (!syncedData.find(s => s._id === id)) {
+              const match = [...rawSongs, ...hits].find(s => s._id === id);
+              if (match) syncedData.push(match);
+          }
+      });
+      // Final unique sweep
+      const finalUnique = syncedData.filter((s, idx, self) => 
+          favorites.includes(s._id) && self.findIndex(t => t._id === s._id) === idx
+      );
+      setLikedSongsData(finalUnique);
       }
     } catch (err) {
       console.error('Error fetching data:', err);
@@ -250,15 +320,21 @@ function App() {
   };
 
   const handleGlobalSearch = async (query) => {
-    if (!query || query.length < 3) return;
+    if (!query) return;
+    console.log("Searching for:", query);
     setIsDiscovering(true);
+    setSearchTerm(query);
+    if (activeTab !== 'discover') setActiveTab('discover');
     
     try {
-        const res = await axios.get(`${API_URL}/discover?query=${encodeURIComponent(query)}`);
-        const data = res.data;
+        const isExplicitTamil = query.toLowerCase().includes('tamil');
+        const searchQuery = isExplicitTamil ? query : `${query} tamil`;
+        const res = await axios.get(`${import.meta.env.VITE_API_URL}/discover?query=${encodeURIComponent(searchQuery)}`);
         
-        if ((data.success || data.status === 'SUCCESS') && data.data && data.data.results) {
-            const results = data.data.results.map(item => ({
+        let results = [];
+        if (res.data && (res.data.success || res.data.status === 'SUCCESS')) {
+            const data = res.data.data.results || [];
+            results = data.map(item => ({
                 _id: item.id,
                 title: item.name,
                 artist: item.primaryArtists || item.artists?.primary?.[0]?.name || "Unknown",
@@ -266,16 +342,22 @@ function App() {
                 url: item.downloadUrl?.[item.downloadUrl.length-1]?.link || item.downloadUrl?.[item.downloadUrl.length-1]?.url || item.downloadUrl?.[0]?.url,
                 category: 'Discover'
             }));
-            setDiscoverResults(results);
-            if (activeTab !== 'discover') setActiveTab('discover');
+        }
+
+        // If results from web are empty, use local library as fallback
+        if (results.length === 0) {
+            console.log("Web search empty, falling back to local...");
+            const localMatches = songs.filter(s => 
+                (s.title + s.artist + s.category).toLowerCase().includes(query.toLowerCase())
+            );
+            setDiscoverResults(localMatches.length > 0 ? localMatches : songs.slice(0, 20));
         } else {
-             alert("No results found. Try a different artist or song name!");
+            setDiscoverResults(results);
         }
     } catch (err) {
-        console.error("Discovery error", err);
-        const msg = err.response?.data?.message || "Server Busy";
-        const detailed = err.response?.data?.error || "";
-        alert(`${msg} ${detailed}`);
+        console.error("Discovery error:", err);
+        // Default to showing your library's Tamil songs if anything goes wrong
+        setDiscoverResults(songs.slice(0, 20));
     } finally {
         setIsDiscovering(false);
     }
@@ -283,13 +365,6 @@ function App() {
 
 
 
-  const toggleLike = (songId) => {
-
-
-    setFavorites(prev => 
-        prev.includes(songId) ? prev.filter(id => id !== songId) : [...prev, songId]
-    );
-  };
 
   const handleNext = () => {
     if (queue.length > 0) {
@@ -299,18 +374,31 @@ function App() {
         return;
     }
 
-    const list = songs;
+    // Dynamic list detection based on where the current song belongs
+    let list = songs;
+    if (currentSong?.category === 'Trending') list = trendingSongs;
+    else if (currentSong?.category === 'Discover') list = discoverResults;
+    else if (activeTab === 'liked') list = likedSongsData;
+    else list = filteredSongsList;
+
+    if (list.length === 0) return;
+
     if (isShuffle && list.length > 1) {
         let nextIdx;
         do { nextIdx = Math.floor(Math.random() * list.length); } 
-        while (list[nextIdx]._id === currentSong?._id);
+        while (list.length > 1 && list[nextIdx]._id === currentSong?._id);
         setCurrentSong(list[nextIdx]);
         return;
     }
+
     const idx = list.findIndex(s => s._id === currentSong?._id);
-    if (idx < list.length - 1) setCurrentSong(list[idx + 1]);
-    else if (isRepeat) setCurrentSong(list[0]);
-    else setCurrentSong(null); 
+    if (idx !== -1 && idx < list.length - 1) {
+        setCurrentSong(list[idx + 1]);
+    } else if (isRepeat) {
+        setCurrentSong(list[0]);
+    } else {
+        setCurrentSong(null); 
+    }
   };
 
   const addToQueue = (song) => {
@@ -334,13 +422,24 @@ function App() {
 
 
   const handlePrev = () => {
-    const list = songs;
+    let list = songs;
+    if (currentSong?.category === 'Trending') list = trendingSongs;
+    else if (currentSong?.category === 'Discover') list = discoverResults;
+    else if (activeTab === 'liked') list = likedSongsData;
+    else list = filteredSongsList;
+
+    if (list.length === 0) return;
+
     const idx = list.findIndex(s => s._id === currentSong?._id);
-    if (idx > 0) setCurrentSong(list[idx - 1]);
-    else setCurrentSong(list[list.length - 1]);
+    if (idx > 0) {
+        setCurrentSong(list[idx - 1]);
+    } else {
+        // Go to end of list
+        setCurrentSong(list[list.length - 1]);
+    }
   };
 
-  const filteredSongs = (activeTab === 'liked' ? songs.filter(s => favorites.includes(s._id)) : songs)
+  const filteredSongsList = (activeTab === 'liked' ? likedSongsData : songs)
     .filter(s => 
         (s.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
         s.artist.toLowerCase().includes(searchTerm.toLowerCase())) &&
@@ -604,7 +703,13 @@ function App() {
           </div>
       )}
 
-      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
+      <Sidebar 
+          activeTab={activeTab} 
+          setActiveTab={setActiveTab} 
+          playlists={playlists} 
+          selectedPlaylistId={selectedPlaylistId}
+          setSelectedPlaylistId={setSelectedPlaylistId}
+      />
       
       <main className="main-content">
         <header className="search-container" style={{ display: activeTab === 'discover' ? 'none' : 'flex' }}>
@@ -674,28 +779,49 @@ function App() {
             
             {activeTab === 'home' && (
                 <div style={{ marginBottom: '3rem' }}>
-                   <div className="banner-hero" style={{ padding: '3rem', borderRadius: '12px', background: 'linear-gradient(135deg, rgba(99,102,241,0.18) 0%, rgba(10,10,20,1) 100%)', border: '1px solid var(--glass-border)', position: 'relative', overflow: 'hidden' }}>
+                   {/* Recently Played - Spotify Style Row */}
+                   {recentlyPlayed.length > 0 && (
+                      <div style={{ marginBottom: '3rem' }}>
+                         <h2 style={{ fontSize: '1.8rem', fontWeight: 800, marginBottom: '1.5rem', letterSpacing: '-0.02em' }}>Jump Back In</h2>
+                         <div className="media-grid">
+                            {recentlyPlayed.slice(0, 6).map(song => (
+                               <MediaCard 
+                                   key={`recent-${song._id}`} 
+                                   item={song} 
+                                   type="music" 
+                                   onClick={setCurrentSong} 
+                                   isLiked={favorites.includes(song._id)}
+                                   onLike={() => toggleLike(song)}
+                                   playlists={playlists}
+                                   onAddToPlaylist={addToPlaylist}
+                               />
+                            ))}
+                         </div>
+                      </div>
+                   )}
+
+                   <div className="banner-hero" style={{ padding: '3rem', borderRadius: '12px', background: 'linear-gradient(135deg, rgba(99,102,241,0.2) 0%, rgba(10,10,20,1) 100%)', border: '1px solid var(--glass-border)', position: 'relative', overflow: 'hidden' }}>
                         <div style={{ position: 'relative', zIndex: 2 }}>
-                            <h2 className="banner-title" style={{ fontWeight: 800, marginBottom: '1rem', color: 'var(--text)' }}>Stream Your Favorites</h2>
-                            <p style={{ opacity: 0.8, fontSize: '1rem', maxWidth: '500px', marginBottom: '2rem' }}>Discover thousands of songs and movies in one place. Your perfect entertainment companion.</p>
+                            <h2 className="banner-title" style={{ fontWeight: 900, fontSize: '3.5rem', marginBottom: '1rem', color: 'white', letterSpacing: '-0.04em' }}>New Music Friday</h2>
+                            <p style={{ opacity: 0.8, fontSize: '1.1rem', maxWidth: '500px', marginBottom: '2rem' }}>Catch up on the latest releases and global trending tracks updated every week.</p>
                             <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-                                <button onClick={() => setActiveTab('music')} style={{ padding: '0.8rem 2rem', borderRadius: '50px', background: 'var(--primary)', color: 'black', border: 'none', fontWeight: 700, cursor: 'pointer', transition: 'transform 0.2s' }}>Explore Music</button>
+                                <button onClick={() => setActiveTab('music')} style={{ padding: '1rem 2.5rem', borderRadius: '50px', background: 'var(--primary)', color: 'black', border: 'none', fontWeight: 800, cursor: 'pointer', transition: 'transform 0.2s', fontSize: '1rem' }}>Listen Now</button>
                             </div>
                         </div>
-                        <div className="banner-circle" style={{ position: 'absolute', right: '5%', top: '-30%', width: '300px', height: '300px', background: 'var(--primary)', filter: 'blur(100px)', opacity: 0.15, borderRadius: '50%' }}></div>
+                        <div className="banner-circle" style={{ position: 'absolute', right: '5%', top: '-30%', width: '400px', height: '400px', background: 'var(--primary)', filter: 'blur(120px)', opacity: 0.2, borderRadius: '50%' }}></div>
                    </div>
                 </div>
             )}
 
             <div style={{ marginBottom: '3rem' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-                <h2 style={{ fontSize: '1.5rem' }}>{activeTab === 'liked' ? `${filteredSongs.length} Liked Tracks` : 'Recommended For You'}</h2>
-                {activeTab === 'home' && <button onClick={() => setActiveTab('music')} className="nav-link" style={{ background: 'none', color: 'var(--primary)' }}>View All</button>}
+                <h2 style={{ fontSize: '1.8rem', fontWeight: 800, letterSpacing: '-0.02em' }}>{activeTab === 'liked' ? `${filteredSongs.length} Liked Tracks` : 'Made For You'}</h2>
+                {activeTab === 'home' && <button onClick={() => setActiveTab('music')} className="nav-link" style={{ background: 'none', color: 'var(--primary)', fontWeight: 700 }}>Show all</button>}
               </div>
               
-              {filteredSongs.length > 0 ? (
+              {filteredSongsList.length > 0 ? (
                 <div className="media-grid">
-                  {(activeTab === 'home' ? filteredSongs.slice(0, 4) : filteredSongs).map(song => (
+                  {(activeTab === 'home' ? filteredSongsList.slice(0, 6) : filteredSongsList).map(song => (
                     <MediaCard 
                         key={song._id} 
                         item={song} 
@@ -703,6 +829,8 @@ function App() {
                         onClick={setCurrentSong} 
                         isLiked={favorites.includes(song._id)}
                         onLike={() => toggleLike(song._id)}
+                        playlists={playlists}
+                        onAddToPlaylist={addToPlaylist}
                     />
                   ))}
                 </div>
@@ -717,8 +845,8 @@ function App() {
             {activeTab === 'home' && trendingSongs.length > 0 && (
                 <div style={{ marginBottom: '3rem' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-                        <h2 style={{ fontSize: '1.5rem' }}>ðŸ”¥ Tamil Trending Hits</h2>
-                        <button onClick={() => { setSearchTerm('tamil trending'); handleGlobalSearch('tamil trending'); }} className="nav-link" style={{ background: 'none', color: 'var(--primary)' }}>View All Hits</button>
+                        <h2 style={{ fontSize: '1.8rem', fontWeight: 800, letterSpacing: '-0.02em' }}>Charts & Trending</h2>
+                        <button onClick={() => { setSearchTerm('tamil trending'); handleGlobalSearch('tamil trending'); }} className="nav-link" style={{ background: 'none', color: 'var(--primary)', fontWeight: 700 }}>Show all</button>
                     </div>
                     <div className="media-grid">
                         {trendingSongs.map(song => (
@@ -729,6 +857,8 @@ function App() {
                                 onClick={setCurrentSong} 
                                 isLiked={favorites.includes(song._id)}
                                 onLike={() => toggleLike(song._id)}
+                                playlists={playlists}
+                                onAddToPlaylist={addToPlaylist}
                             />
                         ))}
                     </div>
@@ -778,127 +908,102 @@ function App() {
                     </div>
 
                     <div className="library-list">
-                        {/* Liked Songs Entry */}
                         <div className="song-row" onClick={() => setSelectedPlaylistId('liked')} style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '1rem', cursor: 'pointer' }}>
                             <div style={{ width: '64px', height: '64px', background: 'linear-gradient(135deg, #4f46e5 0%, #c7d2fe 100%)', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                 <Heart fill="white" color="white" />
                             </div>
                             <div>
                                 <div style={{ fontWeight: 700, fontSize: '1rem' }}>Liked Songs</div>
-                                <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Playlist â€¢ {favorites.length} songs</div>
+                                <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Playlist • {favorites.length} songs</div>
                             </div>
                         </div>
 
-                        {/* Local Files Entry */}
-                        <div className="song-row" onClick={() => localDriveMedia.length === 0 ? handleFolderSelect() : setSelectedPlaylistId('local')} style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '1rem', cursor: 'pointer' }}>
-                            <div style={{ width: '64px', height: '64px', background: '#1e1b4b', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                <HardDrive color="white" />
-                            </div>
-                            <div>
-                                <div style={{ fontWeight: 700, fontSize: '1rem' }}>Local Files</div>
-                                <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>{isScanning ? "Scanning..." : (localDriveMedia.length > 0 ? `${localDriveMedia.length} tracks` : "Select folder to scan tracks")}</div>
-                            </div>
-                        </div>
-
-                        {/* User Playlists */}
                         {playlists.map(p => (
                             <div key={p.id} className="song-row" onClick={() => setSelectedPlaylistId(p.id)} style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '1rem', cursor: 'pointer' }}>
-                                <div style={{ width: '64px', height: '64px', background: '#1a1a2e', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                    <Music color="#b3b3b3" />
+                                <div style={{ width: '64px', height: '64px', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--glass-border)', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <Music color="var(--primary)" />
                                 </div>
                                 <div>
                                     <div style={{ fontWeight: 700, fontSize: '1rem' }}>{p.name}</div>
-                                    <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Playlist â€¢ {p.songs.length} songs</div>
+                                    <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Playlist • {p.songs?.length || 0} songs</div>
                                 </div>
                             </div>
                         ))}
-
-                        {playlists.length === 0 && localDriveMedia.length === 0 && (
-                            <div className="glass" style={{ textAlign: 'center', padding: '4rem', opacity: 0.5, marginTop: '2rem' }}>
-                                <Music size={48} style={{ marginBottom: '1rem' }} />
-                                <h3>Your library is waiting</h3>
-                                <p>Create a playlist or add local files to get started.</p>
-                            </div>
-                        )}
                     </div>
                 </>
             ) : (
                 <>
-                    {/* Playlist Detail View */}
                     <div style={{ marginBottom: '2rem' }}>
                         <button 
-                            onClick={() => { setSelectedPlaylistId(null); if(activeTab === 'liked') setActiveTab('library'); }}
-                            style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+                            onClick={() => { setSelectedPlaylistId(null); }}
+                            style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 600 }}
                         >
-                             &larr; Back to Library
+                             ← Back to Library
                         </button>
                         
-                        <div style={{ display: 'flex', gap: '2rem', alignItems: 'flex-end', marginTop: '1rem' }}>
+                        <div style={{ display: 'flex', gap: '2.5rem', alignItems: 'flex-end', marginTop: '1rem' }}>
                             <div style={{ 
-                                width: '192px', 
-                                height: '192px', 
-                                background: selectedPlaylistId === 'liked' ? 'linear-gradient(135deg, #4f46e5 0%, #c7d2fe 100%)' : (selectedPlaylistId === 'local' ? '#1e1b4b' : '#1a1a2e'),
-                                borderRadius: '8px',
+                                width: '232px', 
+                                height: '232px', 
+                                background: selectedPlaylistId === 'liked' ? 'linear-gradient(135deg, #4f46e5 0%, #c7d2fe 100%)' : 'rgba(255,255,255,0.05)',
+                                borderRadius: '12px',
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
-                                boxShadow: '0 8px 40px rgba(0,0,0,0.5)'
+                                boxShadow: '0 30px 60px rgba(0,0,0,0.6)',
+                                border: '1px solid rgba(255,255,255,0.1)'
                             }}>
-                                {selectedPlaylistId === 'liked' ? <Heart size={64} fill="white" color="white" /> : (selectedPlaylistId === 'local' ? <HardDrive size={64} color="white" /> : <Music size={64} color="#b3b3b3" />)}
+                                {selectedPlaylistId === 'liked' ? <Heart size={100} fill="white" color="white" /> : <Music size={100} color="var(--primary)" />}
                             </div>
                             <div style={{ flex: 1 }}>
-                                <p style={{ fontSize: '0.85rem', fontWeight: 700, marginBottom: '0.5rem' }}>PLAYLIST</p>
-                                <h1 style={{ fontSize: '4rem', margin: '0 0 1rem', fontWeight: 900 }}>
+                                <p style={{ fontSize: '0.8rem', fontWeight: 800, marginBottom: '0.5rem', letterSpacing: '0.1em' }}>PLAYLIST</p>
+                                <h1 style={{ fontSize: '6rem', margin: '0 0 1rem', fontWeight: 900, lineHeight: 1 }}>
                                     {selectedPlaylistId === 'liked' ? 'Liked Songs' : (selectedPlaylistId === 'local' ? 'Local Files' : playlists.find(p => p.id === selectedPlaylistId)?.name)}
                                 </h1>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                                    <p style={{ color: 'var(--text-muted)', margin: 0 }}>{user?.email} â€¢ {
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', fontWeight: 600 }}>
+                                    <span style={{ color: 'white' }}>{user?.email?.split('@')[0]}</span>
+                                    <span style={{ opacity: 0.5 }}>•</span>
+                                    <span style={{ color: 'var(--text-muted)' }}>{
                                         selectedPlaylistId === 'liked' ? `${favorites.length} songs` : (selectedPlaylistId === 'local' ? `${localDriveMedia.length} tracks` : `${playlists.find(p => p.id === selectedPlaylistId)?.songs?.length || 0} songs`)
-                                    }</p>
-                                    {selectedPlaylistId === 'local' && (
-                                        <button onClick={handleFolderSelect} className="filter-chip" style={{ background: 'var(--primary)', color: 'black', padding: '0.4rem 1rem', fontSize: '0.8rem' }}>
-                                            + Add Tracks
-                                        </button>
-                                    )}
+                                    }</span>
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    <div className="glass" style={{ padding: '1rem', border: 'none' }}>
-                        <div style={{ display: 'grid', gridTemplateColumns: '50px 1fr 1fr 100px', padding: '1rem', borderBottom: '1px solid var(--glass-border)', color: 'var(--text-muted)', fontSize: '0.9rem', fontWeight: 600 }}>
-                            <div>#</div>
-                            <div>TITLE</div>
-                            <div>ARTIST</div>
-                            <div style={{ textAlign: 'right' }}>ACTION</div>
+                    <div style={{ display: 'flex', gap: '2rem', alignItems: 'center', marginBottom: '2rem' }}>
+                         <button 
+                            onClick={() => {
+                                const list = selectedPlaylistId === 'liked' ? songs.filter(s => favorites.includes(s._id)) : (playlists.find(p => p.id === selectedPlaylistId)?.songs || []);
+                                if (list.length > 0) setCurrentSong(list[0]);
+                            }}
+                            style={{ width: '56px', height: '56px', borderRadius: '50%', background: 'var(--primary)', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'transform 0.2s' }}
+                         >
+                            <Play fill="black" size={28} />
+                         </button>
+                         <button style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}><Plus size={32} /></button>
+                    </div>
+
+                    <div className="song-table">
+                        <div style={{ display: 'flex', padding: '0 1rem 0.5rem', borderBottom: '1px solid rgba(255,255,255,0.1)', color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+                            <div style={{ width: '40px' }}>#</div>
+                            <div style={{ flex: 1 }}>Title</div>
+                            <div style={{ width: '150px' }}>Album</div>
+                            <div style={{ width: '80px', textAlign: 'right' }}><History size={16} /></div>
                         </div>
-                        {((selectedPlaylistId === 'liked' ? songs.filter(s => favorites.includes(s._id)) : (selectedPlaylistId === 'local' ? localDriveMedia : (playlists.find(p => p.id === selectedPlaylistId)?.songs || [])))).map((song, i) => (
-                            <div key={song._id} 
-                                 className={`song-row ${currentSong?._id === song._id ? 'active' : ''}`}
-                                 style={{ 
-                                     display: 'grid', 
-                                     gridTemplateColumns: '50px 1fr 1fr 100px', 
-                                     padding: '1rem', 
-                                     alignItems: 'center', 
-                                     borderRadius: '12px',
-                                     cursor: 'pointer',
-                                     background: currentSong?._id === song._id ? 'var(--surface-hover)' : 'transparent',
-                                     marginTop: '0.5rem'
-                                 }}
-                                 onClick={() => setCurrentSong(song)}
-                            >
-                                <div style={{ color: currentSong?._id === song._id ? 'var(--primary)' : 'var(--text-muted)' }}>{i + 1}</div>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                        
+                        {(selectedPlaylistId === 'liked' ? likedSongsData : (selectedPlaylistId === 'local' ? localDriveMedia : (playlists.find(p => p.id === selectedPlaylistId)?.songs || []))).map((song, i) => (
+                            <div key={`${song._id}-${i}`} className="song-row" onClick={() => setCurrentSong(song)} style={{ display: 'flex', padding: '0.6rem 1rem', alignItems: 'center', cursor: 'pointer', borderRadius: '4px' }}>
+                                <div style={{ width: '40px', color: currentSong?._id === song._id ? 'var(--primary)' : 'var(--text-muted)' }}>{i + 1}</div>
+                                <div style={{ flex: 1, display: 'flex', gap: '1rem', alignItems: 'center' }}>
                                     <img src={song.image} style={{ width: '40px', height: '40px', borderRadius: '4px' }} />
-                                    <div style={{ fontWeight: 600 }}>{song.title}</div>
+                                    <div>
+                                        <div style={{ fontWeight: 600, color: currentSong?._id === song._id ? 'var(--primary)' : 'white' }}>{song.title}</div>
+                                        <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{song.artist}</div>
+                                    </div>
                                 </div>
-                                <div style={{ color: 'var(--text-muted)' }}>{song.artist}</div>
-                                <div style={{ textAlign: 'right', display: 'flex', alignItems: 'center', gap: '0.8rem', justifyContent: 'flex-end' }}>
-                                    <button onClick={(e) => { e.stopPropagation(); addToQueue(song); }} style={{ background: 'none', border: 'none', color: 'var(--text-muted)' }}><Plus size={18} /></button>
-                                    <button onClick={(e) => { e.stopPropagation(); toggleLike(song._id); }} style={{ background: 'none', border: 'none', color: favorites.includes(song._id) ? 'var(--secondary)' : 'var(--text-muted)' }}>
-                                        <Heart size={18} fill={favorites.includes(song._id) ? 'currentColor' : 'none'} />
-                                    </button>
-                                </div>
+                                <div style={{ width: '150px', fontSize: '0.85rem', color: 'var(--text-muted)' }}>{song.category}</div>
+                                <div style={{ width: '80px', textAlign: 'right', fontSize: '0.85rem', color: 'var(--text-muted)' }}>3:45</div>
                             </div>
                         ))}
                     </div>
@@ -945,21 +1050,21 @@ function App() {
 
                     <div className="section-heading">Start browsing</div>
                     <div className="category-grid">
-                        <div className="category-card" style={{ backgroundColor: '#E13300' }} onClick={() => handleGlobalSearch('pop music')}>
-                            <span>Music</span>
+                        <div className="category-card" style={{ backgroundColor: '#E13300' }} onClick={() => handleGlobalSearch('tamil top hits')}>
+                            <span>Tamil Hits</span>
                             <img src="https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=300&h=300&fit=crop" alt="Music" />
                         </div>
-                        <div className="category-card" style={{ backgroundColor: '#1e1b4b' }} onClick={() => handleGlobalSearch('podcasts')}>
-                            <span>Podcasts</span>
-                            <img src="https://images.unsplash.com/photo-1590602847861-f357a9332bbc?w=300&h=300&fit=crop" alt="Podcasts" />
+                        <div className="category-card" style={{ backgroundColor: '#1e1b4b' }} onClick={() => handleGlobalSearch('tamil melodies')}>
+                            <span>Melodies</span>
+                            <img src="https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=300&h=300&fit=crop" alt="Podcasts" />
                         </div>
-                        <div className="category-card" style={{ backgroundColor: '#7c3aed' }} onClick={() => handleGlobalSearch('live event music')}>
-                            <span>Live Events</span>
-                            <img src="https://images.unsplash.com/photo-1459749411175-04bf5292ceea?w=300&h=300&fit=crop" alt="Live Event" />
+                        <div className="category-card" style={{ backgroundColor: '#1DB954' }} onClick={() => handleGlobalSearch('tamil kuthu songs')}>
+                            <span>Kuthu</span>
+                            <img src="https://images.unsplash.com/photo-1493225255756-d9584f8606e9?w=300&h=300&fit=crop" alt="Live" />
                         </div>
-                        <div className="category-card" style={{ backgroundColor: '#312e81' }} onClick={() => handleGlobalSearch('pop hits')}>
-                            <span>Home of I-Pop</span>
-                            <img src="https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?w=300&h=300&fit=crop" alt="I-Pop" />
+                        <div className="category-card" style={{ backgroundColor: '#503750' }} onClick={() => handleGlobalSearch('ar rahman tamil songs')}>
+                            <span>AR Rahman</span>
+                            <img src="https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=300&h=300&fit=crop" alt="Charts" />
                         </div>
                     </div>
 
@@ -1014,7 +1119,7 @@ function App() {
                                     type="music" 
                                     onClick={setCurrentSong} 
                                     isLiked={favorites.includes(song._id)}
-                                    onLike={() => toggleLike(song._id)}
+                                    onLike={() => toggleLike(song)}
                                 />
                             ))
                         ) : isDiscovering ? (

@@ -319,27 +319,29 @@ function App() {
     }
   };
 
-  const handleGlobalSearch = async (query) => {
+  const handleGlobalSearch = async (query, stayOnHome = false) => {
     if (!query) return;
     console.log("Searching for:", query);
     setIsDiscovering(true);
     setSearchTerm(query);
-    if (activeTab !== 'discover') setActiveTab('discover');
+    if (!stayOnHome && activeTab !== 'discover') setActiveTab('discover');
     
     try {
         const isExplicitTamil = query.toLowerCase().includes('tamil');
         const searchQuery = isExplicitTamil ? query : `${query} tamil`;
         const res = await axios.get(`${import.meta.env.VITE_API_URL}/discover?query=${encodeURIComponent(searchQuery)}`);
         
+        const rawData = res.data?.data?.results || res.data?.data?.songs || res.data?.data || res.data?.results || [];
+        const items = Array.isArray(rawData) ? rawData : (rawData.results || rawData.songs || []);
+        
         let results = [];
-        if (res.data && (res.data.success || res.data.status === 'SUCCESS')) {
-            const data = res.data.data.results || [];
-            results = data.map(item => ({
-                _id: item.id,
-                title: item.name,
-                artist: item.primaryArtists || item.artists?.primary?.[0]?.name || "Unknown",
-                image: item.image?.[item.image.length-1]?.link || item.image?.[item.image.length-1]?.url || item.image?.[0]?.url,
-                url: item.downloadUrl?.[item.downloadUrl.length-1]?.link || item.downloadUrl?.[item.downloadUrl.length-1]?.url || item.downloadUrl?.[0]?.url,
+        if (Array.isArray(items)) {
+            results = items.map(item => ({
+                _id: item.id || item._id,
+                title: item.name || item.title,
+                artist: item.primaryArtists || item.artist || item.artists?.primary?.[0]?.name || "Tamil Hit",
+                image: (item.image?.[item.image?.length - 1]?.url || item.image?.[item.image?.length - 1]?.link || item.image?.[0]?.url || item.image || "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=300&h=300&fit=crop"),
+                url: (item.downloadUrl?.[item.downloadUrl?.length - 1]?.url || item.downloadUrl?.[item.downloadUrl?.length - 1]?.link || item.url || ""),
                 category: 'Discover'
             }));
         }
@@ -765,7 +767,19 @@ function App() {
                     <button 
                         key={genre}
                         className={`filter-chip ${selectedGenre === genre ? 'active' : ''}`}
-                        onClick={() => setSelectedGenre(genre)}
+                        onClick={() => {
+                            setSelectedGenre(genre);
+                            if (genre === 'All') {
+                                setFilteredSongs(songs);
+                            } else {
+                                // If on home, don't jump tabs - just update content
+                                if (activeTab === 'home') {
+                                    handleGlobalSearch(genre, true); // Added 'stay' parameter
+                                } else {
+                                    handleGlobalSearch(genre);
+                                }
+                            }
+                        }}
                     >
                         {genre}
                     </button>
@@ -819,7 +833,20 @@ function App() {
                 {activeTab === 'home' && <button onClick={() => setActiveTab('music')} className="nav-link" style={{ background: 'none', color: 'var(--primary)', fontWeight: 700 }}>Show all</button>}
               </div>
               
-              {filteredSongsList.length > 0 ? (
+              {selectedGenre !== 'All' ? (
+                <div className="media-grid">
+                  {discoverResults.map(song => (
+                    <MediaCard 
+                        key={`genre-${song._id}`} 
+                        item={song} 
+                        type="music" 
+                        onClick={setCurrentSong} 
+                        isLiked={favorites.includes(song._id)}
+                        onLike={() => toggleLike(song)}
+                    />
+                  ))}
+                </div>
+              ) : filteredSongsList.length > 0 ? (
                 <div className="media-grid">
                   {(activeTab === 'home' ? filteredSongsList.slice(0, 6) : filteredSongsList).map(song => (
                     <MediaCard 
@@ -828,7 +855,7 @@ function App() {
                         type="music" 
                         onClick={setCurrentSong} 
                         isLiked={favorites.includes(song._id)}
-                        onLike={() => toggleLike(song._id)}
+                        onLike={() => toggleLike(song)}
                         playlists={playlists}
                         onAddToPlaylist={addToPlaylist}
                     />
@@ -1127,10 +1154,15 @@ function App() {
                                 <div className="spinner" style={{ width: '40px', height: '40px', border: '4px solid var(--glass-border)', borderTopColor: 'var(--primary)', borderRadius: '50%', animation: 'spin 1s linear infinite', margin: '0 auto 1rem' }}></div>
                                 <p>Searching the globe...</p>
                             </div>
+                        ) : searchTerm ? (
+                            <div className="glass" style={{ padding: '5rem', textAlign: 'center', gridColumn: '1 / -1' }}>
+                                <h3>No results for "{searchTerm}"</h3>
+                                <p style={{ color: 'var(--text-muted)', marginTop: '0.5rem' }}>Try searching for a movie name like "Leo" or an artist like "Anirudh".</p>
+                            </div>
                         ) : (
                             <div className="glass" style={{ padding: '5rem', textAlign: 'center', gridColumn: '1 / -1', opacity: 0.5 }}>
                                 <Search size={48} style={{ marginBottom: '1.5rem', margin: '0 auto' }} />
-                                <h2>Hit enter to search for matching songs!</h2>
+                                <h2>Search for your favorite Tamil tracks!</h2>
                             </div>
                         )}
                     </div>
@@ -1328,6 +1360,44 @@ function App() {
           </section>
         )}
 
+        {/* Library Hub (Primarily for Mobile) */}
+        {activeTab === 'library' && (
+          <section className="mobile-library-view">
+             <div className="top-nav-bar">
+                 <h1 className="page-title">Your Library</h1>
+             </div>
+             <div className="category-grid" style={{ marginBottom: '2rem' }}>
+                 <div className="category-card" onClick={() => { setSelectedPlaylistId('liked'); setActiveTab('playlist'); }} style={{ background: 'linear-gradient(135deg, #450af5, #c4efd9)', height: '120px' }}>
+                     <span>Liked Songs</span>
+                     <Heart fill="white" size={40} style={{ position: 'absolute', bottom: 10, right: 10, opacity: 0.3 }} />
+                 </div>
+                 <div className="category-card" onClick={() => { setSelectedPlaylistId('local'); setActiveTab('playlist'); }} style={{ background: 'linear-gradient(135deg, #ff416c, #ff4b2b)', height: '120px' }}>
+                     <span>Local Files</span>
+                     <HardDrive size={40} style={{ position: 'absolute', bottom: 10, right: 10, opacity: 0.3 }} />
+                 </div>
+             </div>
+             
+             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                 <h2 className="section-heading" style={{ margin: 0 }}>Playlists</h2>
+                 <button onClick={createPlaylist} style={{ background: 'none', border: 'none', color: 'var(--primary)', fontWeight: 600 }}>Create New</button>
+             </div>
+             
+             <div className="media-grid">
+                 {playlists.map(p => (
+                     <div key={p.id} className="media-card" onClick={() => { setSelectedPlaylistId(p.id); setActiveTab('playlist'); }}>
+                         <div className="card-img-container" style={{ background: 'var(--surface-hover)', display: 'flex', placeItems: 'center' }}>
+                             <Music size={48} color="var(--primary)" style={{ margin: 'auto' }} />
+                         </div>
+                         <div className="card-content">
+                             <div className="card-title">{p.name}</div>
+                             <div className="card-subtitle">{p.songs.length} songs</div>
+                         </div>
+                     </div>
+                 ))}
+             </div>
+          </section>
+        )}
+
         {loading && (
           <div style={{ display: 'flex', justifyContent: 'center', padding: '5rem', position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 10000 }}>
              <div style={{ textAlign: 'center' }}>
@@ -1364,6 +1434,26 @@ function App() {
         video={playingVideo} 
         onClose={() => setPlayingVideo(null)} 
       />
+
+      {/* Mobile Bottom Navigation Bar */}
+      <div className="mobile-bottom-nav">
+          <div className={`mobile-nav-item ${activeTab === 'home' ? 'active' : ''}`} onClick={() => { setActiveTab('home'); setActiveSubView(null); }}>
+              <Music size={24} />
+              <span>Home</span>
+          </div>
+          <div className={`mobile-nav-item ${activeTab === 'search' || activeTab === 'discover' ? 'active' : ''}`} onClick={() => { setActiveTab('search'); setActiveSubView(null); }}>
+              <Search size={24} />
+              <span>Search</span>
+          </div>
+          <div className={`mobile-nav-item ${activeTab === 'library' || activeTab === 'liked' ? 'active' : ''}`} onClick={() => { setActiveTab('library'); setActiveSubView(null); }}>
+              <Heart size={24} />
+              <span>Library</span>
+          </div>
+          <div className={`mobile-nav-item ${activeSubView === 'profile' ? 'active' : ''}`} onClick={() => { setActiveSubView('profile'); }}>
+              <User size={24} />
+              <span>Profile</span>
+          </div>
+      </div>
     </div>
   );
 

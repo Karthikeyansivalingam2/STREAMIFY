@@ -33,28 +33,40 @@ app.use(cors(corsOptions));
 app.use(express.json());
 app.use('/uploads', express.static(uploadDir));
 
-// Music Discovery Proxy (Bypass CORS)
+// Music Discovery Proxy - Triple Redundancy System
 app.get('/api/discover', async (req, res) => {
     const { query } = req.query;
     if (!query) return res.status(400).json({ success: false, message: "Query is required" });
     
-    console.log("Searching for:", query);
-    try {
-        const response = await axios.get(`https://saavn.dev/api/search/songs?query=${encodeURIComponent(query)}`);
-        return res.json(response.data);
-    } catch (err) {
-        console.warn("Primary API failed, trying Vercel Backup...");
+    console.log("Discovery search:", query);
+    
+    // We try multiple reliable API sources in order
+    const sources = [
+        `https://saavn.dev/api/search/songs?query=${encodeURIComponent(query)}`,
+        `https://jio-savan-api.vercel.app/search/songs?query=${encodeURIComponent(query)}`,
+        `https://jiosaavn-api-taupe.vercel.app/search/songs?query=${encodeURIComponent(query)}`
+    ];
+
+    for (const url of sources) {
         try {
-            const fallback = await axios.get(`https://jiosaavn-api-taupe.vercel.app/search/songs?query=${encodeURIComponent(query)}`);
-            return res.json(fallback.data);
-        } catch (e) {
-            console.error("Discovery Final Error:", e.message);
-            return res.status(500).json({ 
-                success: false, 
-                message: "All music servers are unreachable.",
-                error: e.message 
-            });
+            const response = await axios.get(url, { timeout: 5000 });
+            if (response.data && (response.data.data || response.data.results)) {
+                console.log("Success with source:", new URL(url).hostname);
+                return res.json(response.data);
+            }
+        } catch (err) {
+            console.warn(`Source ${new URL(url).hostname} failed, trying next...`);
         }
+    }
+
+    // FINAL FALLBACK: Simplify query (e.g., just the first word)
+    const simpleQuery = query.split(' ')[0];
+    try {
+        const response = await axios.get(`https://saavn.dev/api/search/songs?query=${encodeURIComponent(simpleQuery)}`, { timeout: 3000 });
+        return res.json(response.data);
+    } catch (e) {
+        console.error("All discovery sources failed.");
+        res.status(503).json({ success: false, message: "Music servers are busy. Please try again." });
     }
 });
 

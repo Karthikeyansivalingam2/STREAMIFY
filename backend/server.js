@@ -24,7 +24,22 @@ if (!fs.existsSync(uploadDir)){
 
 // Middleware
 const corsOptions = {
-    origin: true, // Echoes the originating request's origin dynamically instead of using wildcard '*'
+    origin: function (origin, callback) {
+        // Allow requests with no origin (like mobile apps or curl requests)
+        // or requests from our specific domains
+        const allowedOrigins = [
+            'http://localhost:5173',
+            'http://localhost:5000',
+            'https://streamify-neon.vercel.app',
+            'https://streamify-media.vercel.app'
+        ];
+        
+        if (!origin || allowedOrigins.indexOf(origin) !== -1 || origin.includes('vercel.app')) {
+            callback(null, true);
+        } else {
+            callback(new Error('Not allowed by CORS'));
+        }
+    },
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
     credentials: true,
     optionsSuccessStatus: 200

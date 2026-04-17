@@ -127,6 +127,16 @@ function App() {
     }
   }, [currentSong]);
 
+  const handleInstallClick = async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === 'accepted') {
+      setDeferredPrompt(null);
+      setIsInstallable(false);
+    }
+  };
+
   useEffect(() => {
     const handleBeforeInstallPrompt = (e) => {
       e.preventDefault();
@@ -140,14 +150,22 @@ function App() {
       console.log('PWA was installed');
     };
 
+    const handleTriggerInstall = () => {
+      if (typeof handleInstallClick === 'function') {
+        handleInstallClick();
+      }
+    };
+
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
     window.addEventListener('appinstalled', handleAppInstalled);
+    window.addEventListener('triggerPWAInstall', handleTriggerInstall);
 
     return () => {
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
       window.removeEventListener('appinstalled', handleAppInstalled);
+      window.removeEventListener('triggerPWAInstall', handleTriggerInstall);
     };
-  }, []);
+  }, [deferredPrompt]); // Added dependency to ensure handleInstallClick uses fresh prompt
 
   const fetchData = async () => {
     try {
@@ -207,16 +225,6 @@ function App() {
       setMovies([]);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleInstallClick = async () => {
-    if (!deferredPrompt) return;
-    deferredPrompt.prompt();
-    const { outcome } = await deferredPrompt.userChoice;
-    if (outcome === 'accepted') {
-      setDeferredPrompt(null);
-      setIsInstallable(false);
     }
   };
 

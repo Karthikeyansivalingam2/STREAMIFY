@@ -166,7 +166,7 @@ function App() {
           const content = (s.title + s.artist + s.category + (s.language || '')).toLowerCase();
           return content.includes('tamil') || s.category === 'uploaded';
       });
-      setFilteredSongs(tamilSongs.length > 0 ? tamilSongs : rawSongs);
+      // setFilteredSongs(tamilSongs.length > 0 ? tamilSongs : rawSongs); // Removed undefined state call
       setMovies(moviesRes.data || []);
       
       if (trendingRes.data?.data?.results) {
@@ -795,7 +795,7 @@ function App() {
                         onClick={() => {
                             setSelectedGenre(genre);
                             if (genre === 'All') {
-                                setFilteredSongs(songs);
+                                // setFilteredSongs(songs); // Removed undefined state call
                             } else {
                                 // If on home, don't jump tabs - just update content
                                 if (activeTab === 'home') {
@@ -852,7 +852,7 @@ function App() {
 
             <div style={{ marginBottom: '3rem' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-                <h2 style={{ fontSize: '1.8rem', fontWeight: 800, letterSpacing: '-0.02em' }}>{activeTab === 'liked' ? `${filteredSongs.length} Liked Tracks` : 'Made For You'}</h2>
+                <h2 style={{ fontSize: '1.8rem', fontWeight: 800, letterSpacing: '-0.02em' }}>{activeTab === 'liked' ? `${filteredSongsList.length} Liked Tracks` : 'Made For You'}</h2>
                 {activeTab === 'home' && <button onClick={() => setActiveTab('music')} className="nav-link" style={{ background: 'none', color: 'var(--primary)', fontWeight: 700 }}>Show all</button>}
               </div>
               
@@ -1255,7 +1255,7 @@ function App() {
                     <div>ARTIST</div>
                     <div style={{ textAlign: 'right' }}>ACTION</div>
                 </div>
-                {filteredSongs.map((song, i) => (
+                {filteredSongsList.map((song, i) => (
                     <div key={song._id} 
                          className={`song-row ${currentSong?._id === song._id ? 'active' : ''}`}
                          style={{ 

@@ -1534,8 +1534,8 @@ function App() {
         onClose={() => setPlayingVideo(null)} 
       />
 
-      {/* Mobile Bottom Navigation Bar */}
-      <div className="mobile-bottom-nav">
+      {/* Fixed Mobile Bottom Navigation Bar - FORCED VISIBILITY */}
+      <div className="mobile-bottom-nav" style={{ background: '#0a0a0f !important', display: 'flex !important' }}>
           <div className={`mobile-nav-item ${activeTab === 'home' ? 'active' : ''}`} onClick={() => { setActiveTab('home'); setActiveSubView(null); }}>
               <Music size={24} />
               <span>Home</span>

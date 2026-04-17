@@ -1,7 +1,7 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { Play, Pause, SkipBack, SkipForward, Volume2, Shuffle, Repeat, ListMusic, Heart, X, ChevronDown, MoreVertical } from 'lucide-react';
+import { Play, Pause, SkipBack, SkipForward, Volume2, Shuffle, Repeat, ListMusic, Heart, X, ChevronDown, MoreVertical, Share2, PlusCircle, User, Disc, Info, MessageSquare } from 'lucide-react';
 
-const AudioPlayer = ({ currentSong, songs, onNext, onPrev, isShuffle, setIsShuffle, isRepeat, setIsRepeat, toggleLike, favorites }) => {
+const AudioPlayer = ({ currentSong, songs, onNext, onPrev, isShuffle, setIsShuffle, isRepeat, setIsRepeat, toggleLike, favorites, playlists, addToPlaylist, addToQueue, onSearch }) => {
   const audioRef = useRef(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -11,6 +11,8 @@ const AudioPlayer = ({ currentSong, songs, onNext, onPrev, isShuffle, setIsShuff
   const [isMuted, setIsMuted] = useState(false);
   const [showQueue, setShowQueue] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
+  const [showOptionsMenu, setShowOptionsMenu] = useState(false);
+  const [showPlaylistPicker, setShowPlaylistPicker] = useState(false);
 
   // Clean HTML entities using a more robust regex-based method to avoid DOM issues
   const cleanText = (text) => {
@@ -74,6 +76,25 @@ const AudioPlayer = ({ currentSong, songs, onNext, onPrev, isShuffle, setIsShuff
     return `${min}:${sec < 10 ? '0' : ''}${sec}`;
   };
 
+  const handleShare = async () => {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: cleanText(currentSong.title),
+          text: `Check out ${cleanText(currentSong.title)} by ${cleanText(currentSong.artist)} on Streamify!`,
+          url: window.location.href,
+        });
+      } catch (err) {
+        console.log('Error sharing:', err);
+      }
+    } else {
+      // Fallback: Copy to clipboard
+      navigator.clipboard.writeText(window.location.href);
+      alert('Link copied to clipboard!');
+    }
+    setShowOptionsMenu(false);
+  };
+
   if (!currentSong) return null;
 
   return (
@@ -132,7 +153,7 @@ const AudioPlayer = ({ currentSong, songs, onNext, onPrev, isShuffle, setIsShuff
                     <span>PLAYING FROM YOUR LIBRARY</span>
                     <strong>Streamify Premium</strong>
                 </div>
-                <button className="fs-opt"><MoreVertical size={24} /></button>
+                <button className="fs-opt" onClick={() => setShowOptionsMenu(true)}><MoreVertical size={24} /></button>
             </div>
 
             <div className="fs-content">
@@ -189,6 +210,89 @@ const AudioPlayer = ({ currentSong, songs, onNext, onPrev, isShuffle, setIsShuff
                     </div>
                 </div>
             </div>
+
+            {/* OPTIONS MENU (SPOTIFY STYLE BOTTOM SHEET) */}
+            {showOptionsMenu && (
+                <div className="fs-menu-overlay" onClick={() => setShowOptionsMenu(false)}>
+                    <div className="fs-menu-sheet" onClick={e => e.stopPropagation()}>
+                        <div className="sheet-handle"></div>
+                        
+                        <div className="sheet-header">
+                            <img src={currentSong.image} alt="Art" />
+                            <div className="sheet-meta">
+                                <h3>{cleanText(currentSong.title)}</h3>
+                                <p>{cleanText(currentSong.artist)}</p>
+                            </div>
+                        </div>
+
+                        <div className="sheet-actions">
+                            <button className="sheet-item" onClick={() => { toggleLike(currentSong); setShowOptionsMenu(false); }}>
+                                <Heart size={20} fill={favorites?.includes(currentSong._id) ? "#818cf8" : "none"} color={favorites?.includes(currentSong._id) ? "#818cf8" : "white"} />
+                                <span>{favorites?.includes(currentSong._id) ? 'Liked' : 'Like'}</span>
+                            </button>
+                            <button className="sheet-item" onClick={() => { setShowPlaylistPicker(true); setShowOptionsMenu(false); }}>
+                                <PlusCircle size={20} />
+                                <span>Add to playlist</span>
+                            </button>
+                            <button className="sheet-item" onClick={() => { addToQueue(currentSong); setShowOptionsMenu(false); }}>
+                                <ListMusic size={20} />
+                                <span>Add to queue</span>
+                            </button>
+                            <button className="sheet-item" onClick={handleShare}>
+                                <Share2 size={20} />
+                                <span>Share</span>
+                            </button>
+                            <div className="sheet-divider"></div>
+                            <button className="sheet-item" onClick={() => { 
+                                onSearch(cleanText(currentSong.artist)); 
+                                setShowOptionsMenu(false); 
+                                setIsExpanded(false); 
+                            }}>
+                                <User size={20} />
+                                <span>View Artist</span>
+                            </button>
+                            <button className="sheet-item" onClick={() => {
+                                onSearch(cleanText(currentSong.title).split('(')[0]);
+                                setShowOptionsMenu(false);
+                                setIsExpanded(false);
+                            }}>
+                                <Disc size={20} />
+                                <span>View Album</span>
+                            </button>
+                            <button className="sheet-item" onClick={() => {
+                                alert(`Credits for ${cleanText(currentSong.title)}:\nArtist: ${cleanText(currentSong.artist)}\nPlatform: Streamify Premium`);
+                                setShowOptionsMenu(false);
+                            }}>
+                                <Info size={20} />
+                                <span>Show Credits</span>
+                            </button>
+                        </div>
+
+                        <button className="sheet-close" onClick={() => setShowOptionsMenu(false)}>Close</button>
+                    </div>
+                </div>
+            )}
+
+            {/* PLAYLIST PICKER */}
+            {showPlaylistPicker && (
+                <div className="fs-menu-overlay" onClick={() => setShowPlaylistPicker(false)}>
+                    <div className="fs-menu-sheet picker" onClick={e => e.stopPropagation()}>
+                        <div className="sheet-handle"></div>
+                        <h2 className="picker-title">Add to Playlist</h2>
+                        <div className="picker-list">
+                            {playlists && playlists.length > 0 ? playlists.map(pl => (
+                                <button key={pl.id} className="picker-item" onClick={() => { addToPlaylist(pl.id, currentSong); setShowPlaylistPicker(false); }}>
+                                    <ListMusic size={20} />
+                                    <span>{pl.name}</span>
+                                </button>
+                            )) : (
+                                <div className="picker-empty">No playlists found. Create one in the library.</div>
+                            )}
+                        </div>
+                        <button className="sheet-close" onClick={() => setShowPlaylistPicker(false)}>Cancel</button>
+                    </div>
+                </div>
+            )}
         </div>
     )}
 
@@ -204,20 +308,22 @@ const AudioPlayer = ({ currentSong, songs, onNext, onPrev, isShuffle, setIsShuff
         .mini-info { display: flex; align-items: center; gap: 0.75rem; flex: 1; min-width: 0; }
         .mini-info img { width: 45px; height: 45px; border-radius: 6px; object-fit: cover; }
         .playing-ring { outline: 2px solid #818cf8; outline-offset: 2px; }
-        .mini-meta { overflow: hidden; }
+        .mini-meta { overflow: hidden; display: flex; flex-direction: column; justify-content: center; }
         .mini-title { font-weight: 700; font-size: 0.9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .mini-artist { font-size: 0.75rem; color: #999; }
+        .mini-artist { font-size: 0.75rem; color: #999; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .mini-heart { background: none; border: none; color: #555; cursor: pointer; padding: 0.5rem; }
         .mini-heart.active { color: #818cf8; }
 
         .mini-controls { flex: 2; display: flex; flex-direction: column; align-items: center; gap: 0.4rem; }
-        .mini-btns { display: flex; align-items: center; gap: 1.5rem; }
-        .mini-play { width: 40px; height: 40px; background: white; border: none; border-radius: 50%; display: flex; align-items: center; justifyContent: center; cursor: pointer; }
-        .mini-btn { background: none; border: none; color: white; cursor: pointer; }
-        .prog-track { width: 100%; max-width: 400px; height: 4px; background: rgba(255,255,255,0.1); border-radius: 2px; overflow: hidden; cursor: pointer; }
+        .mini-btns { display: flex; align-items: center; gap: 0.5rem; justify-content: center; }
+        .mini-play { width: 44px; height: 44px; background: white; border: none; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: transform 0.2s; flex-shrink: 0; }
+        .mini-play:active { transform: scale(0.9); }
+        .mini-btn { background: none; border: none; color: white; cursor: pointer; padding: 10px; display: flex; align-items: center; justify-content: center; transition: 0.2s; flex-shrink: 0; }
+        .mini-btn:active { opacity: 0.6; transform: scale(0.9); }
+        .prog-track { width: 100%; max-width: 400px; height: 4px; background: rgba(255,255,255,0.1); border-radius: 2px; overflow: hidden; cursor: pointer; flex-shrink: 0; }
         .prog-fill { height: 100%; background: #818cf8; border-radius: 2px; }
         
-        .mini-extra { flex: 1; display: flex; justify-content: flex-end; align-items: center; gap: 1.5rem; }
+        .mini-extra { flex: 1; display: flex; justify-content: flex-end; align-items: center; gap: 1rem; }
         .mini-vol { display: flex; align-items: center; gap: 0.5rem; width: 100px; }
         .prog-track.vol { max-width: 80px; }
 
@@ -252,8 +358,10 @@ const AudioPlayer = ({ currentSong, songs, onNext, onPrev, isShuffle, setIsShuff
         .fs-time-labels { display: flex; justify-content: space-between; font-size: 0.8rem; color: #777; font-weight: 600; }
 
         .fs-main-btns { display: flex; justify-content: space-between; align-items: center; padding: 1rem 0; }
-        .fs-play-xl { width: 75px; height: 75px; background: white; border-radius: 50%; border: none; display: flex; align-items: center; justifyContent: center; cursor: pointer; box-shadow: 0 10px 30px rgba(255,255,255,0.2); }
-        .fs-skip-xl, .fs-sec-btn { background: none; border: none; color: white; cursor: pointer; }
+        .fs-play-xl { width: 80px; height: 80px; background: white; border-radius: 50%; border: none; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 10px 40px rgba(129, 140, 248, 0.3); transition: transform 0.2s; }
+        .fs-play-xl:active { transform: scale(0.92); }
+        .fs-skip-xl, .fs-sec-btn { background: none; border: none; color: white; cursor: pointer; transition: 0.2s; padding: 12px; display: flex; align-items: center; justify-content: center; }
+        .fs-skip-xl:active, .fs-sec-btn:active { opacity: 0.7; transform: scale(0.92); }
 
         .fs-footer-row { display: flex; justify-content: space-between; align-items: center; opacity: 0.7; }
         .fs-footer-btn { background: none; border: none; color: white; }
@@ -272,12 +380,70 @@ const AudioPlayer = ({ currentSong, songs, onNext, onPrev, isShuffle, setIsShuff
 
         @media (max-width: 768px) {
             .h-mob { display: none !important; }
-            .mini-player-host { bottom: 85px; left: 8px; right: 8px; }
-            .mini-player { background: #1a1a1a; border-radius: 8px; }
+            .mini-player-host { bottom: calc(80px + env(safe-area-inset-bottom)); left: 8px; right: 8px; }
+            .mini-player { 
+                background: rgba(26, 26, 26, 0.95); 
+                border-radius: 12px; 
+                padding: 0.5rem 0.8rem;
+                gap: 0.5rem;
+            }
+            .mini-info { flex: 1; gap: 0.6rem; }
+            .mini-info img { width: 40px; height: 40px; }
+            .mini-heart { padding: 0.4rem; }
+            .mini-controls { flex: 0; }
             .fs-content { padding: 0 1.5rem 2rem; }
             .fs-hero-art { max-width: 320px; }
             .fs-main-btns { padding: 0.5rem 0; }
             .fs-main-title { font-size: 1.5rem; }
+        }
+
+        /* Options Menu Sheet */
+        .fs-menu-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); z-index: 20000; display: flex; align-items: flex-end; animation: fadeIn 0.3s ease; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        .fs-menu-sheet { 
+            width: 100%; background: #282828; border-radius: 20px 20px 0 0; 
+            padding: 1.5rem; display: flex; flex-direction: column; gap: 1.5rem;
+            animation: slideUp 0.4s cubic-bezier(0,0,0.2,1);
+            max-height: 85vh; overflow-y: auto;
+        }
+        @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+
+        .sheet-handle { width: 40px; height: 4px; background: rgba(255,255,255,0.1); border-radius: 2px; align-self: center; margin-bottom: -0.5rem; }
+        
+        .sheet-header { display: flex; align-items: center; gap: 1rem; padding-bottom: 1rem; border-bottom: 1px solid rgba(255,255,255,0.05); }
+        .sheet-header img { width: 50px; height: 50px; border-radius: 4px; object-fit: cover; }
+        .sheet-meta h3 { margin: 0; font-size: 1rem; font-weight: 700; color: white; }
+        .sheet-meta p { margin: 0.2rem 0 0; font-size: 0.85rem; color: #999; }
+
+        .sheet-actions { display: flex; flex-direction: column; gap: 0.25rem; }
+        .sheet-item { 
+            display: flex; align-items: center; gap: 1rem; padding: 1rem; 
+            background: none; border: none; color: white; cursor: pointer;
+            border-radius: 8px; transition: 0.2s; font-size: 0.95rem; font-weight: 500;
+        }
+        .sheet-item:hover { background: rgba(255,255,255,0.05); }
+        .sheet-item svg { opacity: 0.8; }
+        .sheet-divider { height: 1px; background: rgba(255,255,255,0.05); margin: 0.5rem 0; }
+
+        .sheet-close { 
+            background: none; border: none; color: white; font-weight: 700; 
+            padding: 1rem; cursor: pointer; opacity: 0.5; margin-top: 0.5rem;
+        }
+
+        /* Picker */
+        .picker-title { font-size: 1.25rem; font-weight: 800; margin: 0; text-align: center; }
+        .picker-list { display: flex; flex-direction: column; gap: 0.5rem; margin-top: 1rem; }
+        .picker-item { 
+            display: flex; align-items: center; gap: 1rem; padding: 1.2rem; 
+            background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.03); 
+            color: white; border-radius: 12px; cursor: pointer;
+        }
+        .picker-empty { text-align: center; padding: 3rem; color: #666; font-style: italic; }
+
+        @media (min-width: 1024px) {
+            .fs-menu-overlay { align-items: center; justify-content: center; }
+            .fs-menu-sheet { width: 400px; border-radius: 20px; }
         }
     `}</style>
     </>

@@ -544,12 +544,12 @@ function App() {
           <div className="profile-drawer-overlay" onClick={() => setShowProfileDrawer(false)}>
               <div className="profile-drawer" onClick={(e) => e.stopPropagation()}>
                   <div className="drawer-header">
-                      <div className="profile-icon" style={{ width: '50px', height: '50px', background: '#a78bfa', color: 'black', fontSize: '1.2rem' }}>
+                      <div className="profile-icon drawer-avatar">
                           {user?.email?.charAt(0).toUpperCase()}
                       </div>
-                      <div style={{ flex: 1 }}>
-                          <h2 style={{ margin: 0, fontSize: '1.2rem' }}>{user?.email?.split('@')[0]}</h2>
-                          <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-muted)' }}>View profile</p>
+                      <div className="drawer-meta">
+                          <h2>{user?.email?.split('@')[0]}</h2>
+                          <p>View profile</p>
                       </div>
                   </div>
 
@@ -571,6 +571,7 @@ function App() {
                                </div>
                            </div>
                        ))}
+                       <div className="drawer-divider"></div>
 
                        <div className="drawer-item" onClick={() => { setShowAddAccount(true); setShowProfileDrawer(false); }}>
                            <Plus size={20} /> Add account
@@ -974,10 +975,10 @@ function App() {
                              ← Back to Library
                         </button>
                         
-                        <div style={{ display: 'flex', gap: '2.5rem', alignItems: 'flex-end', marginTop: '1rem' }}>
-                            <div style={{ 
-                                width: '232px', 
-                                height: '232px', 
+                        <div className="library-header" style={{ display: 'flex', gap: '2rem', alignItems: 'flex-end', marginTop: '1rem', flexWrap: 'wrap' }}>
+                            <div className="library-art-box" style={{ 
+                                width: 'min(232px, 100%)', 
+                                aspectPosition: '1/1',
                                 background: selectedPlaylistId === 'liked' ? 'linear-gradient(135deg, #4f46e5 0%, #c7d2fe 100%)' : 'rgba(255,255,255,0.05)',
                                 borderRadius: '12px',
                                 display: 'flex',
@@ -986,14 +987,14 @@ function App() {
                                 boxShadow: '0 30px 60px rgba(0,0,0,0.6)',
                                 border: '1px solid rgba(255,255,255,0.1)'
                             }}>
-                                {selectedPlaylistId === 'liked' ? <Heart size={100} fill="white" color="white" /> : <Music size={100} color="var(--primary)" />}
+                                {selectedPlaylistId === 'liked' ? <Heart size={80} fill="white" color="white" /> : <Music size={80} color="var(--primary)" />}
                             </div>
-                            <div style={{ flex: 1 }}>
+                            <div style={{ flex: 1, minWidth: '300px' }}>
                                 <p style={{ fontSize: '0.8rem', fontWeight: 800, marginBottom: '0.5rem', letterSpacing: '0.1em' }}>PLAYLIST</p>
-                                <h1 style={{ fontSize: '6rem', margin: '0 0 1rem', fontWeight: 900, lineHeight: 1 }}>
+                                <h1 className="library-title" style={{ fontSize: 'clamp(2.5rem, 8vw, 6rem)', margin: '0 0 1rem', fontWeight: 900, lineHeight: 1.1 }}>
                                     {selectedPlaylistId === 'liked' ? 'Liked Songs' : (selectedPlaylistId === 'local' ? 'Local Files' : playlists.find(p => p.id === selectedPlaylistId)?.name)}
                                 </h1>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', fontWeight: 600 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', fontWeight: 600, flexWrap: 'wrap' }}>
                                     <span style={{ color: 'white' }}>{user?.email?.split('@')[0]}</span>
                                     <span style={{ opacity: 0.5 }}>•</span>
                                     <span style={{ color: 'var(--text-muted)' }}>{
@@ -1408,6 +1409,10 @@ function App() {
         currentSong={currentSong} 
         songs={songs} 
         queue={queue}
+        playlists={playlists}
+        addToPlaylist={addToPlaylist}
+        addToQueue={addToQueue}
+        onSearch={handleGlobalSearch}
         onNext={handleNext} 
         onPrev={handlePrev} 
         isShuffle={isShuffle}

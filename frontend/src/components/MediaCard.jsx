@@ -11,6 +11,7 @@ const MediaCard = ({ item, type, onClick, isLiked, onLike, playlists = [], onAdd
           src={type === 'music' ? item.image : item.thumbnail} 
           alt={item.title} 
           className="card-img" 
+          loading="lazy"
         />
         <div className="play-overlay">
           <div className="control-btn play" style={{ width: '50px', height: '50px' }}>
@@ -31,7 +32,10 @@ const MediaCard = ({ item, type, onClick, isLiked, onLike, playlists = [], onAdd
               <button 
                   className="menu-trigger"
                   onClick={(e) => { e.stopPropagation(); setShowMenu(!showMenu); }}
-                  style={{ position: 'absolute', bottom: '10px', right: '10px', background: 'rgba(0,0,0,0.5)', border: 'none', borderRadius: '50%', padding: '6px', cursor: 'pointer', zIndex: 11, display: 'flex', color: 'white' }}
+                  style={{ position: 'absolute', bottom: '10px', right: '10px', background: 'rgba(0,0,0,0.5)', border: 'none', borderRadius: '50%', padding: '6px', cursor: 'pointer', zIndex: 11, display: 'flex', color: 'white', transition: 'transform 0.2s' }}
+                  onMouseDown={(e) => e.currentTarget.style.transform = 'scale(0.85)'}
+                  onMouseUp={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                  onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
               >
                   <MoreVertical size={16} />
               </button>

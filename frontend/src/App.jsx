@@ -191,29 +191,9 @@ function App() {
               const profileRes = await axios.get(`${API_URL}/user/${user.id || user._id}`);
               if (profileRes.data?.success) {
                   const dbUser = profileRes.data.user;
-                  // DATA NORMALIZATION: Ensure legacy ID-only favorites are handled
-                  const normalizedFavs = (dbUser.favorites || []).map(item => {
-                      if (typeof item === 'string') {
-                          // Try to find metadata in current session if it was just an ID
-                          return [...rawSongs, ...hits].find(s => s._id === item) || null;
-                      }
-                      return item;
-                  }).filter(item => item !== null && typeof item === 'object');
-
-                  if (normalizedFavs.length > 0) setFavorites(normalizedFavs);
-                  
-                  // Same for playlists
-                  const normalizedPlaylists = (dbUser.playlists || []).map(pl => ({
-                      ...pl,
-                      songs: (pl.songs || []).map(item => {
-                          if (typeof item === 'string') {
-                              return [...rawSongs, ...hits].find(s => s._id === item) || null;
-                          }
-                          return item;
-                      }).filter(item => item !== null && typeof item === 'object')
-                  }));
-                  
-                  if (normalizedPlaylists.length > 0) setPlaylists(normalizedPlaylists);
+                  // If DB has data, prefer cloud data over local to ensure consistency across devices
+                  if (dbUser.favorites && dbUser.favorites.length > 0) setFavorites(dbUser.favorites);
+                  if (dbUser.playlists && dbUser.playlists.length > 0) setPlaylists(dbUser.playlists);
               }
           } catch (pErr) { console.warn("Failed to fetch online profile, using local stash."); }
           finally { setInitialSyncDone(true); }
@@ -884,7 +864,7 @@ function App() {
                         item={song} 
                         type="music" 
                         onClick={setCurrentSong} 
-                        isLiked={favorites.includes(song._id)}
+                        isLiked={favorites.some(s => s._id === song._id)}
                         onLike={() => toggleLike(song)}
                         onLongPress={setContextMenuSong}
                     />
@@ -898,7 +878,7 @@ function App() {
                         item={song} 
                         type="music" 
                         onClick={setCurrentSong} 
-                        isLiked={favorites.includes(song._id)}
+                        isLiked={favorites.some(s => s._id === song._id)}
                         onLike={() => toggleLike(song)}
                         playlists={playlists}
                         onAddToPlaylist={addToPlaylist}
@@ -1047,7 +1027,7 @@ function App() {
                     <div style={{ display: 'flex', gap: '2rem', alignItems: 'center', marginBottom: '2rem' }}>
                          <button 
                             onClick={() => {
-                                const list = selectedPlaylistId === 'liked' ? songs.filter(s => favorites.includes(s._id)) : (playlists.find(p => p.id === selectedPlaylistId)?.songs || []);
+                                const list = selectedPlaylistId === 'liked' ? songs.filter(s => favorites.some(f => f._id === s._id)) : (playlists.find(p => p.id === selectedPlaylistId)?.songs || []);
                                 if (list.length > 0) setCurrentSong(list[0]);
                             }}
                             style={{ width: '56px', height: '56px', borderRadius: '50%', background: 'var(--primary)', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'transform 0.2s' }}

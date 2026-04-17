@@ -179,7 +179,8 @@ function App() {
             category: 'Trending'
          }));
          setTrendingSongs(hits);
-         
+      }
+          
       // Clean up favorites and merge with online data
       const localFavs = JSON.parse(localStorage.getItem('streamify-favorites') || '[]');
       setFavorites(localFavs);

@@ -129,6 +129,9 @@ mongoose.connect(MONGO_URI)
   .then(() => console.log('Connected to MongoDB Atlas: Watchify'))
   .catch((err) => console.error('MongoDB connection error:', err));
 
+const Playlist = require('./models/Playlist');
+const Favorite = require('./models/Favorite');
+
 // --- AUTHENTICATION ROUTES ---
 app.post('/api/auth/register', async (req, res) => {
     try {
@@ -136,41 +139,38 @@ app.post('/api/auth/register', async (req, res) => {
         
         // Check if user exists
         const existingUser = await User.findOne({ email });
-        if (existingUser) {
-            return res.status(400).json({ message: 'User already exists with this email' });
-        }
-        
-        // Create new user (In production, hash the password using bcrypt!)
-        const newUser = new User({ email, password, playlists: [], favorites: [] });
-        await newUser.save();
-        
-        res.status(201).json({ success: true, message: 'User created successfully', user: { id: newUser._id, email: newUser.email, playlists: newUser.playlists, favorites: newUser.favorites } });
+        if (existingUser) return res.status(400).json({ message: 'User already exists' });
+
+        const user = new User({ email, password });
+        await user.save();
+        res.status(201).json({ success: true, user: { id: user._id, email: user.email } });
     } catch (err) {
-        console.error("Register error:", err);
-        res.status(500).json({ message: 'Server error during registration' });
+        res.status(500).json({ message: 'Registration failed' });
     }
 });
 
 app.post('/api/auth/login', async (req, res) => {
     try {
         const { email, password } = req.body;
+        const user = await User.findOne({ email, password });
         
-        // Find user
-        const user = await User.findOne({ email });
-        if (!user) {
-            return res.status(400).json({ message: 'Invalid credentials' });
-        }
-        
-        // Check password (In production, compare hashes!)
-        if (user.password !== password) {
-            return res.status(400).json({ message: 'Invalid credentials' });
-        }
-        
-        // Success
-        res.json({ success: true, message: 'Logged in successfully', user: { id: user._id, email: user.email, playlists: user.playlists, favorites: user.favorites } });
+        if (!user) return res.status(401).json({ success: false, message: 'Invalid credentials' });
+
+        // Fetch favorites and playlists from separate collections
+        const favorites = await Favorite.find({ userId: user._id });
+        const playlists = await Playlist.find({ userId: user._id });
+
+        res.json({ 
+            success: true, 
+            user: { 
+                id: user._id, 
+                email: user.email, 
+                favorites: favorites.map(f => f.songData) || [], 
+                playlists: playlists || [] 
+            } 
+        });
     } catch (err) {
-        console.error("Login error:", err);
-        res.status(500).json({ message: 'Server error during login' });
+        res.status(500).json({ message: 'Login failed' });
     }
 });
 
@@ -179,13 +179,17 @@ app.get('/api/user/:id', async (req, res) => {
     try {
         const user = await User.findById(req.params.id);
         if (!user) return res.status(404).json({ message: 'User not found' });
+
+        const favorites = await Favorite.find({ userId: user._id });
+        const playlists = await Playlist.find({ userId: user._id });
+
         res.json({ 
             success: true, 
             user: { 
                 id: user._id, 
                 email: user.email, 
-                favorites: user.favorites || [], 
-                playlists: user.playlists || [] 
+                favorites: favorites.map(f => f.songData) || [], 
+                playlists: playlists || [] 
             } 
         });
     } catch (err) {
@@ -196,22 +200,47 @@ app.get('/api/user/:id', async (req, res) => {
 app.put('/api/user/:id/playlists', async (req, res) => {
     try {
         const { id } = req.params;
-        const { playlists } = req.body;
-        await User.findByIdAndUpdate(id, { playlists }, { new: true });
+        const { playlists } = req.body; // Array of playlist objects
+        
+        // Option 1: Overwrite all (Simple sync)
+        await Playlist.deleteMany({ userId: id });
+        
+        if (playlists && playlists.length > 0) {
+            const docs = playlists.map(p => ({
+                userId: id,
+                name: p.name,
+                songs: p.songs
+            }));
+            await Playlist.insertMany(docs);
+        }
+        
         res.json({ success: true });
     } catch (err) {
-        res.status(500).json({ message: 'Failed to update playlists' });
+        console.error(err);
+        res.status(500).json({ message: 'Failed to sync playlists' });
     }
 });
 
 app.put('/api/user/:id/favorites', async (req, res) => {
     try {
         const { id } = req.params;
-        const { favorites } = req.body;
-        await User.findByIdAndUpdate(id, { favorites }, { new: true });
+        const { favorites } = req.body; // Array of song objects
+        
+        // Simple sync strategy: replace all
+        await Favorite.deleteMany({ userId: id });
+        
+        if (favorites && favorites.length > 0) {
+            const docs = favorites.map(song => ({
+                userId: id,
+                songId: song._id,
+                songData: song
+            }));
+            await Favorite.insertMany(docs);
+        }
+        
         res.json({ success: true });
     } catch (err) {
-        res.status(500).json({ message: 'Failed to update favorites' });
+        res.status(500).json({ message: 'Failed to sync favorites' });
     }
 });
 

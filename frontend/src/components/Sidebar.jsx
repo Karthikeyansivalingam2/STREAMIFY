@@ -43,7 +43,7 @@ const Sidebar = ({ activeTab, setActiveTab, playlists, setSelectedPlaylistId, se
             style={{ borderRadius: '12px', padding: '0.8rem 1.2rem', fontSize: '1rem', color: 'var(--primary)' }}
           >
             <Download size={20} />
-            <span style={{ fontWeight: 800 }}>Install App </span>
+            <span style={{ fontWeight: 800 }}>Install App</span>
           </a>
       </nav>
       

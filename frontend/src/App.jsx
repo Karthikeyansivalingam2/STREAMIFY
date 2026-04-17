@@ -1548,9 +1548,9 @@ function App() {
               <Heart size={24} />
               <span>Library</span>
           </div>
-          <div className="mobile-nav-item" onClick={handleInstallClick} style={{ color: '#ff4757', fontWeight: 800 }}>
-              <Download size={24} color="#ff4757" />
-              <span>Install V2</span>
+          <div className="mobile-nav-item" onClick={handleInstallClick} style={{ color: 'var(--primary)' }}>
+              <Download size={24} />
+              <span>Install</span>
           </div>
       </div>
     </div>

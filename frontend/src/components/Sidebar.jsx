@@ -1,4 +1,4 @@
-import { Home, Music, Film, Plus, Settings, HardDrive, Heart, Search } from 'lucide-react';
+import { Home, Music, Film, Plus, Settings, HardDrive, Heart, Search, Download } from 'lucide-react';
 
 
 

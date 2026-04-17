@@ -141,10 +141,10 @@ app.post('/api/auth/register', async (req, res) => {
         }
         
         // Create new user (In production, hash the password using bcrypt!)
-        const newUser = new User({ email, password });
+        const newUser = new User({ email, password, playlists: [], favorites: [] });
         await newUser.save();
         
-        res.status(201).json({ success: true, message: 'User created successfully', user: { id: newUser._id, email: newUser.email } });
+        res.status(201).json({ success: true, message: 'User created successfully', user: { id: newUser._id, email: newUser.email, playlists: newUser.playlists, favorites: newUser.favorites } });
     } catch (err) {
         console.error("Register error:", err);
         res.status(500).json({ message: 'Server error during registration' });
@@ -167,10 +167,33 @@ app.post('/api/auth/login', async (req, res) => {
         }
         
         // Success
-        res.json({ success: true, message: 'Logged in successfully', user: { id: user._id, email: user.email } });
+        res.json({ success: true, message: 'Logged in successfully', user: { id: user._id, email: user.email, playlists: user.playlists, favorites: user.favorites } });
     } catch (err) {
         console.error("Login error:", err);
         res.status(500).json({ message: 'Server error during login' });
+    }
+});
+
+// --- USER DATA SYNC ROUTES ---
+app.put('/api/user/:id/playlists', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { playlists } = req.body;
+        await User.findByIdAndUpdate(id, { playlists }, { new: true });
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ message: 'Failed to update playlists' });
+    }
+});
+
+app.put('/api/user/:id/favorites', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { favorites } = req.body;
+        await User.findByIdAndUpdate(id, { favorites }, { new: true });
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ message: 'Failed to update favorites' });
     }
 });
 

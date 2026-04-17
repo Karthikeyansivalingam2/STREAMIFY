@@ -90,7 +90,10 @@ function App() {
 
   useEffect(() => {
     localStorage.setItem('streamify-favorites', JSON.stringify(favorites));
-  }, [favorites]);
+    if (user && (user.id || user._id)) {
+        axios.put(`${API_URL}/user/${user.id || user._id}/favorites`, { favorites }).catch(err => console.error("Error syncing favorites:", err));
+    }
+  }, [favorites, user]);
 
   useEffect(() => {
     localStorage.setItem('streamify-liked-data', JSON.stringify(likedSongsData));
@@ -98,7 +101,10 @@ function App() {
 
   useEffect(() => {
     localStorage.setItem('streamify-playlists', JSON.stringify(playlists));
-  }, [playlists]);
+    if (user && (user.id || user._id)) {
+        axios.put(`${API_URL}/user/${user.id || user._id}/playlists`, { playlists }).catch(err => console.error("Error syncing playlists:", err));
+    }
+  }, [playlists, user]);
 
   useEffect(() => {
     localStorage.setItem('streamify-recents', JSON.stringify(recentlyPlayed));
@@ -328,7 +334,7 @@ function App() {
     setSearchTerm(query);
     setSelectedGenre('All'); // Reset genre filter when searching worldwide
     
-    if (!stayOnHome && activeTab !== 'discover') setActiveTab('discover');
+    if (!stayOnHome && activeTab !== 'search') setActiveTab('search');
     
     try {
         const res = await axios.get(`${API_URL}/discover?query=${encodeURIComponent(query)}`);
@@ -495,6 +501,8 @@ function App() {
                           if (res.data.success) {
                               setIsAuthenticated(true);
                               setUser(res.data.user);
+                              if (res.data.user.favorites) setFavorites(res.data.user.favorites);
+                              if (res.data.user.playlists) setPlaylists(res.data.user.playlists);
                               localStorage.setItem('streamify-auth', 'true');
                               localStorage.setItem('streamify-user', JSON.stringify(res.data.user));
                           }
@@ -635,6 +643,8 @@ function App() {
                                   });
                                   // Switch to new account
                                   setUser(newAcc);
+                                  if (newAcc.favorites) setFavorites(newAcc.favorites);
+                                  if (newAcc.playlists) setPlaylists(newAcc.playlists);
                                   localStorage.setItem('streamify-user', JSON.stringify(newAcc));
                                   localStorage.setItem('streamify-auth', 'true');
                                   setAddAccountEmail('');
@@ -922,17 +932,17 @@ function App() {
           <section className="library-view">
             {!selectedPlaylistId && activeTab !== 'liked' ? (
                 <>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '2rem' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                    <div className="library-header-row">
+                        <div className="library-header-left">
                             <div className="profile-icon" style={{ width: '40px', height: '40px', background: 'var(--primary)', color: 'black' }}>{user?.email?.charAt(0).toUpperCase()}</div>
                             <h1 style={{ margin: 0 }}>Your Library</h1>
                         </div>
-                        <div style={{ display: 'flex', gap: '1rem' }}>
+                        <div className="library-header-actions">
                             <button onClick={handleFolderSelect} className="filter-chip" style={{ display: 'flex', gap: '0.4rem', border: '1px solid var(--glass-border)' }}>
-                                <HardDrive size={18} /> {isScanning ? "Scanning..." : "Add Local Files"}
+                                <HardDrive size={16} /> {isScanning ? "Scanning..." : "Local Files"}
                             </button>
                             <button onClick={createPlaylist} className="filter-chip" style={{ background: 'white', color: 'black' }}>
-                                <Plus size={18} /> Create Playlist
+                                <Plus size={16} /> New Playlist
                             </button>
                         </div>
                     </div>
@@ -1452,6 +1462,15 @@ function App() {
                                    </button>
                                ))
                            )}
+                           {/* Add New Playlist Option */}
+                           <button className="sheet-playlist-item"
+                               onClick={() => {
+                                   createPlaylist();
+                               }}
+                               style={{ justifyContent: 'center', color: 'var(--primary)', fontWeight: 600, padding: '1rem', borderTop: '1px solid rgba(255,255,255,0.05)' }}
+                           >
+                               <Plus size={16} /> <span style={{ marginLeft: '10px' }}>Create New Playlist</span>
+                           </button>
                        </div>
                    )}
 
@@ -1464,6 +1483,10 @@ function App() {
                        document.body.appendChild(a);
                        a.click();
                        document.body.removeChild(a);
+                       
+                       setActiveTab('library');
+                       setSelectedPlaylistId('local');
+
                        setContextMenuSong(null);
                        setContextMenuShowPlaylists(false);
                    }}>
@@ -1498,10 +1521,6 @@ function App() {
           <div className={`mobile-nav-item ${activeTab === 'library' || activeTab === 'liked' ? 'active' : ''}`} onClick={() => { setActiveTab('library'); setActiveSubView(null); }}>
               <Heart size={24} />
               <span>Library</span>
-          </div>
-          <div className={`mobile-nav-item ${activeSubView === 'profile' ? 'active' : ''}`} onClick={() => { setActiveSubView('profile'); }}>
-              <User size={24} />
-              <span>Profile</span>
           </div>
       </div>
     </div>

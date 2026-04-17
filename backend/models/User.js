@@ -11,7 +11,12 @@ const userSchema = new mongoose.Schema({
         required: true,
     },
     favorites: [{
-        type: String // We can store song IDs here later
+        type: String // You can store strings or mixed
+    }],
+    playlists: [{
+        id: { type: String, required: true },
+        name: { type: String, required: true },
+        songs: [] // Store mixed objects or strings representing the array of songs
     }],
     createdAt: {
         type: Date,

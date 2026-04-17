@@ -281,7 +281,7 @@ const AudioPlayer = ({ currentSong, songs, onNext, onPrev, isShuffle, setIsShuff
                         <h2 className="picker-title">Add to Playlist</h2>
                         <div className="picker-list">
                             {playlists && playlists.length > 0 ? playlists.map(pl => (
-                                <button key={pl.id} className="picker-item" onClick={() => { addToPlaylist(pl.id, currentSong); setShowPlaylistPicker(false); }}>
+                                <button key={pl.id || pl._id} className="picker-item" onClick={() => { addToPlaylist(pl.id || pl._id, currentSong); setShowPlaylistPicker(false); }}>
                                     <ListMusic size={20} />
                                     <span>{pl.name}</span>
                                 </button>

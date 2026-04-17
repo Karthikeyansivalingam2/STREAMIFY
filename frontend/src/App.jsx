@@ -391,7 +391,7 @@ function App() {
     if (selectedPlaylistId === 'liked' || activeTab === 'liked') list = likedSongsData;
     else if (selectedPlaylistId === 'local') list = localDriveMedia;
     else if (selectedPlaylistId && selectedPlaylistId !== 'liked') {
-        const pl = playlists.find(p => p.id === selectedPlaylistId);
+        const pl = playlists.find(p => (p.id || p._id) === selectedPlaylistId);
         if (pl) list = pl.songs || [];
     }
     else if (currentSong?.category === 'Trending') list = trendingSongs;
@@ -432,7 +432,7 @@ function App() {
 
   const addToPlaylist = (playlistId, song) => {
       setPlaylists(prev => prev.map(p => 
-          p.id === playlistId ? { ...p, songs: [...p.songs, song] } : p
+          (p.id || p._id) === playlistId ? { ...p, songs: [...p.songs, song] } : p
       ));
       alert("Added to playlist!");
   };
@@ -443,7 +443,7 @@ function App() {
     if (selectedPlaylistId === 'liked' || activeTab === 'liked') list = likedSongsData;
     else if (selectedPlaylistId === 'local') list = localDriveMedia;
     else if (selectedPlaylistId && selectedPlaylistId !== 'liked') {
-        const pl = playlists.find(p => p.id === selectedPlaylistId);
+        const pl = playlists.find(p => (p.id || p._id) === selectedPlaylistId);
         if (pl) list = pl.songs || [];
     }
     else if (currentSong?.category === 'Trending') list = trendingSongs;
@@ -972,7 +972,7 @@ function App() {
                         </div>
 
                         {playlists.map(p => (
-                            <div key={p.id} className="song-row" onClick={() => setSelectedPlaylistId(p.id)} style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '1rem', cursor: 'pointer' }}>
+                            <div key={p.id || p._id} className="song-row" onClick={() => setSelectedPlaylistId(p.id || p._id)} style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '1rem', cursor: 'pointer' }}>
                                 <div style={{ width: '64px', height: '64px', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--glass-border)', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                     <Music color="var(--primary)" />
                                 </div>
@@ -1011,13 +1011,13 @@ function App() {
                             <div style={{ flex: 1, minWidth: '300px' }}>
                                 <p style={{ fontSize: '0.8rem', fontWeight: 800, marginBottom: '0.5rem', letterSpacing: '0.1em' }}>PLAYLIST</p>
                                 <h1 className="library-title" style={{ fontSize: 'clamp(2.5rem, 8vw, 6rem)', margin: '0 0 1rem', fontWeight: 900, lineHeight: 1.1 }}>
-                                    {selectedPlaylistId === 'liked' ? 'Liked Songs' : (selectedPlaylistId === 'local' ? 'Local Files' : playlists.find(p => p.id === selectedPlaylistId)?.name)}
+                                    {selectedPlaylistId === 'liked' ? 'Liked Songs' : (selectedPlaylistId === 'local' ? 'Local Files' : playlists.find(p => (p.id || p._id) === selectedPlaylistId)?.name)}
                                 </h1>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', fontWeight: 600, flexWrap: 'wrap' }}>
                                     <span style={{ color: 'white', fontWeight: 700 }}>{user?.email?.split('@')[0] || 'User'}</span>
                                     <span style={{ opacity: 0.5 }}>•</span>
                                     <span style={{ color: 'var(--text-muted)' }}>{
-                                        selectedPlaylistId === 'liked' ? `${favorites.length} songs` : (selectedPlaylistId === 'local' ? `${localDriveMedia.length} tracks` : `${playlists.find(p => p.id === selectedPlaylistId)?.songs?.length || 0} songs`)
+                                        selectedPlaylistId === 'liked' ? `${favorites.length} songs` : (selectedPlaylistId === 'local' ? `${localDriveMedia.length} tracks` : `${playlists.find(p => (p.id || p._id) === selectedPlaylistId)?.songs?.length || 0} songs`)
                                     }</span>
                                 </div>
                             </div>
@@ -1027,7 +1027,7 @@ function App() {
                     <div style={{ display: 'flex', gap: '2rem', alignItems: 'center', marginBottom: '2rem' }}>
                          <button 
                             onClick={() => {
-                                const list = selectedPlaylistId === 'liked' ? songs.filter(s => favorites.some(f => f._id === s._id)) : (playlists.find(p => p.id === selectedPlaylistId)?.songs || []);
+                                const list = selectedPlaylistId === 'liked' ? songs.filter(s => favorites.some(f => f._id === s._id)) : (playlists.find(p => (p.id || p._id) === selectedPlaylistId)?.songs || []);
                                 if (list.length > 0) setCurrentSong(list[0]);
                             }}
                             style={{ width: '56px', height: '56px', borderRadius: '50%', background: 'var(--primary)', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'transform 0.2s' }}
@@ -1045,7 +1045,7 @@ function App() {
                             <div style={{ width: '80px', textAlign: 'right' }}><History size={16} /></div>
                         </div>
                         
-                        {(selectedPlaylistId === 'liked' ? favorites : (selectedPlaylistId === 'local' ? localDriveMedia : (playlists.find(p => p.id === selectedPlaylistId)?.songs || []))).map((song, i) => (
+                        {(selectedPlaylistId === 'liked' ? favorites : (selectedPlaylistId === 'local' ? localDriveMedia : (playlists.find(p => (p.id || p._id) === selectedPlaylistId)?.songs || []))).map((song, i) => (
                             <div key={`${song._id}-${i}`} className="song-row" onClick={() => setCurrentSong(song)} style={{ display: 'flex', padding: '0.6rem 1rem', alignItems: 'center', cursor: 'pointer', borderRadius: '4px' }}>
                                 <div style={{ width: '40px', color: currentSong?._id === song._id ? 'var(--primary)' : 'var(--text-muted)' }}>{i + 1}</div>
                                 <div style={{ flex: 1, display: 'flex', gap: '1rem', alignItems: 'center' }}>

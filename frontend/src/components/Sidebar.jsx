@@ -46,13 +46,13 @@ const Sidebar = ({ activeTab, setActiveTab, playlists, setSelectedPlaylistId, se
 
           {playlists.map(playlist => (
              <a 
-                key={playlist.id} 
-                href={`#playlist-${playlist.id}`} 
-                className={`nav-link ${selectedPlaylistId === playlist.id ? 'active' : ''}`}
+                key={playlist.id || playlist._id} 
+                href={`#playlist-${playlist.id || playlist._id}`} 
+                className={`nav-link ${selectedPlaylistId === (playlist.id || playlist._id) ? 'active' : ''}`}
                 onClick={(e) => {
                     e.preventDefault();
                     setActiveTab('library');
-                    setSelectedPlaylistId(playlist.id);
+                    setSelectedPlaylistId(playlist.id || playlist._id);
                 }}
                 style={{ borderRadius: '12px', padding: '0.8rem 1.2rem' }}
              >

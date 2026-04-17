@@ -191,9 +191,29 @@ function App() {
               const profileRes = await axios.get(`${API_URL}/user/${user.id || user._id}`);
               if (profileRes.data?.success) {
                   const dbUser = profileRes.data.user;
-                  // If DB has data, prefer cloud data over local to ensure consistency across devices
-                  if (dbUser.favorites && dbUser.favorites.length > 0) setFavorites(dbUser.favorites);
-                  if (dbUser.playlists && dbUser.playlists.length > 0) setPlaylists(dbUser.playlists);
+                  // DATA NORMALIZATION: Ensure legacy ID-only favorites are handled
+                  const normalizedFavs = (dbUser.favorites || []).map(item => {
+                      if (typeof item === 'string') {
+                          // Try to find metadata in current session if it was just an ID
+                          return [...rawSongs, ...hits].find(s => s._id === item) || null;
+                      }
+                      return item;
+                  }).filter(item => item !== null && typeof item === 'object');
+
+                  if (normalizedFavs.length > 0) setFavorites(normalizedFavs);
+                  
+                  // Same for playlists
+                  const normalizedPlaylists = (dbUser.playlists || []).map(pl => ({
+                      ...pl,
+                      songs: (pl.songs || []).map(item => {
+                          if (typeof item === 'string') {
+                              return [...rawSongs, ...hits].find(s => s._id === item) || null;
+                          }
+                          return item;
+                      }).filter(item => item !== null && typeof item === 'object')
+                  }));
+                  
+                  if (normalizedPlaylists.length > 0) setPlaylists(normalizedPlaylists);
               }
           } catch (pErr) { console.warn("Failed to fetch online profile, using local stash."); }
           finally { setInitialSyncDone(true); }

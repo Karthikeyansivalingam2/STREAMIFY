@@ -119,7 +119,7 @@ const AudioPlayer = ({ currentSong, songs, onNext, onPrev, isShuffle, setIsShuff
 
             <div className="mini-controls">
                 <div className="mini-btns">
-                    <button className="mini-btn h-mob" onClick={(e) => { e.stopPropagation(); onPrev(); }}><SkipBack size={20} fill="white" /></button>
+                    <button className="mini-btn" onClick={(e) => { e.stopPropagation(); onPrev(); }}><SkipBack size={20} fill="white" /></button>
                     <button className="mini-play" onClick={(e) => { e.stopPropagation(); togglePlay(); }}>
                         {isPlaying ? <Pause size={24} fill="currentColor" /> : <Play size={24} fill="currentColor" />}
                     </button>
@@ -185,7 +185,7 @@ const AudioPlayer = ({ currentSong, songs, onNext, onPrev, isShuffle, setIsShuff
                         </div>
 
                         <div className="fs-main-btns">
-                            <button className="fs-sec-btn h-mob" onClick={() => setIsShuffle(!isShuffle)}>
+                            <button className="fs-sec-btn" onClick={() => setIsShuffle(!isShuffle)}>
                                 <Shuffle size={24} color={isShuffle ? '#818cf8' : 'rgba(255,255,255,0.5)'} />
                             </button>
                             <button className="fs-skip-xl" onClick={onPrev}><SkipBack size={40} fill="white" /></button>
@@ -193,7 +193,7 @@ const AudioPlayer = ({ currentSong, songs, onNext, onPrev, isShuffle, setIsShuff
                                 {isPlaying ? <Pause size={40} fill="black" /> : <Play size={40} fill="black" />}
                             </button>
                             <button className="fs-skip-xl" onClick={onNext}><SkipForward size={40} fill="white" /></button>
-                            <button className="fs-sec-btn h-mob" onClick={() => setIsRepeat(!isRepeat)}>
+                            <button className="fs-sec-btn" onClick={() => setIsRepeat(!isRepeat)}>
                                 <Repeat size={24} color={isRepeat ? '#818cf8' : 'rgba(255,255,255,0.5)'} />
                             </button>
                         </div>
@@ -380,21 +380,28 @@ const AudioPlayer = ({ currentSong, songs, onNext, onPrev, isShuffle, setIsShuff
 
         @media (max-width: 768px) {
             .h-mob { display: none !important; }
-            .mini-player-host { bottom: calc(80px + env(safe-area-inset-bottom)); left: 8px; right: 8px; }
+            .mini-player-host { bottom: calc(85px + env(safe-area-inset-bottom)); left: 8px; right: 8px; }
             .mini-player { 
                 background: rgba(26, 26, 26, 0.95); 
                 border-radius: 12px; 
-                padding: 0.5rem 0.8rem;
-                gap: 0.5rem;
+                padding: 0.5rem 0.6rem;
+                gap: 0.3rem;
             }
-            .mini-info { flex: 1; gap: 0.6rem; }
+            .mini-info { flex: 1.5; gap: 0.5rem; overflow: hidden; }
             .mini-info img { width: 40px; height: 40px; }
-            .mini-heart { padding: 0.4rem; }
-            .mini-controls { flex: 0; }
-            .fs-content { padding: 0 1.5rem 2rem; }
-            .fs-hero-art { max-width: 320px; }
-            .fs-main-btns { padding: 0.5rem 0; }
-            .fs-main-title { font-size: 1.5rem; }
+            .mini-meta { max-width: 100px; }
+            .mini-heart { padding: 0.3rem; }
+            .mini-controls { flex: 1; }
+            .mini-btns { gap: 0.3rem; }
+            .mini-play { width: 36px; height: 36px; }
+            .mini-btn { padding: 8px; }
+            .fs-main-btns { padding: 0.5rem 0; gap: 0.5rem; }
+            .fs-play-xl { width: 70px; height: 70px; }
+            .fs-skip-xl { padding: 8px; }
+            .fs-skip-xl svg { width: 32px; height: 32px; }
+            .fs-content { padding: 0 1.2rem 2rem; }
+            .fs-hero-art { max-width: 280px; }
+            .fs-main-title { font-size: 1.4rem; }
         }
 
         /* Global Menu styles moved to index.css */

@@ -392,9 +392,14 @@ function App() {
 
     // Dynamic list detection based on where the current song belongs
     let list = songs;
-    if (currentSong?.category === 'Trending') list = trendingSongs;
+    if (selectedPlaylistId === 'liked' || activeTab === 'liked') list = likedSongsData;
+    else if (selectedPlaylistId === 'local') list = localDriveMedia;
+    else if (selectedPlaylistId && selectedPlaylistId !== 'liked') {
+        const pl = playlists.find(p => p.id === selectedPlaylistId);
+        if (pl) list = pl.songs || [];
+    }
+    else if (currentSong?.category === 'Trending') list = trendingSongs;
     else if (currentSong?.category === 'Discover') list = discoverResults;
-    else if (activeTab === 'liked') list = likedSongsData;
     else list = filteredSongsList;
 
     if (list.length === 0) return;
@@ -439,9 +444,14 @@ function App() {
 
   const handlePrev = () => {
     let list = songs;
-    if (currentSong?.category === 'Trending') list = trendingSongs;
+    if (selectedPlaylistId === 'liked' || activeTab === 'liked') list = likedSongsData;
+    else if (selectedPlaylistId === 'local') list = localDriveMedia;
+    else if (selectedPlaylistId && selectedPlaylistId !== 'liked') {
+        const pl = playlists.find(p => p.id === selectedPlaylistId);
+        if (pl) list = pl.songs || [];
+    }
+    else if (currentSong?.category === 'Trending') list = trendingSongs;
     else if (currentSong?.category === 'Discover') list = discoverResults;
-    else if (activeTab === 'liked') list = likedSongsData;
     else list = filteredSongsList;
 
     if (list.length === 0) return;

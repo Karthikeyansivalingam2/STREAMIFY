@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Search, Music, Film, Plus, Play, HardDrive, Heart, Camera, User, LogOut, Settings, History, X, Download, ListMusic, ChevronRight } from 'lucide-react';
+import { Search, Music, Film, Plus, Play, HardDrive, Heart, Camera, User, LogOut, Settings, History, X, Download, ListMusic, ChevronRight, ListPlus } from 'lucide-react';
 
 import Sidebar from './components/Sidebar';
 import MediaCard from './components/MediaCard';
@@ -128,7 +128,10 @@ function App() {
   }, [currentSong]);
 
   const handleInstallClick = async () => {
-    if (!deferredPrompt) return;
+    if (!deferredPrompt) {
+      alert("Installation prompt not available yet. \n\nOn Mobile: Tap Browser Menu -> Add to Home Screen.\nOn Desktop: Look for (+) icon in address bar.");
+      return;
+    }
     deferredPrompt.prompt();
     const { outcome } = await deferredPrompt.userChoice;
     if (outcome === 'accepted') {
@@ -429,6 +432,11 @@ function App() {
   const addToQueue = (song) => {
       setQueue(prev => [...prev, song]);
       alert("Added to queue!");
+  };
+
+  const playNext = (song) => {
+      setQueue(prev => [song, ...prev]);
+      alert("Added to Play Next!");
   };
 
   const createPlaylist = () => {
@@ -1438,6 +1446,10 @@ function App() {
                        <Plus size={22} /> <span>Add to Queue</span>
                    </button>
 
+                   <button className="sheet-item" onClick={() => { playNext(contextMenuSong); setContextMenuSong(null); setContextMenuShowPlaylists(false); }}>
+                       <ListPlus size={22} /> <span>Play Next</span>
+                   </button>
+
                    <button className="sheet-item" onClick={() => { toggleLike(contextMenuSong); setContextMenuSong(null); setContextMenuShowPlaylists(false); }}>
                        <Heart size={22} fill={favorites.some(s => s._id === contextMenuSong._id) ? "#818cf8" : "none"} color={favorites.some(s => s._id === contextMenuSong._id) ? "#818cf8" : "white"} />
                        <span>{favorites.some(s => s._id === contextMenuSong._id) ? 'Liked ✓' : 'Like'}</span>
@@ -1535,6 +1547,10 @@ function App() {
           <div className={`mobile-nav-item ${activeTab === 'library' || activeTab === 'liked' ? 'active' : ''}`} onClick={() => { setActiveTab('library'); setActiveSubView(null); }}>
               <Heart size={24} />
               <span>Library</span>
+          </div>
+          <div className="mobile-nav-item" onClick={handleInstallClick} style={{ color: 'var(--primary)' }}>
+              <Download size={24} />
+              <span>Install</span>
           </div>
       </div>
     </div>

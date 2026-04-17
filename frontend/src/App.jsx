@@ -63,29 +63,19 @@ function App() {
   const [contextMenuSong, setContextMenuSong] = useState(null);
   const [contextMenuShowPlaylists, setContextMenuShowPlaylists] = useState(false);
 
-  const toggleLike = (songOrId) => {
-      const isObject = typeof songOrId === 'object' && songOrId !== null;
-      const songId = isObject ? songOrId._id : songOrId;
+  const toggleLike = (song) => {
+      if (!song || !song._id) return;
       
       setFavorites(prev => {
-          const isLiked = prev.includes(songId);
+          const isLiked = prev.some(s => s._id === song._id);
+          let newFavs;
           if (isLiked) {
-              setLikedSongsData(ld => ld.filter(s => s._id !== songId));
-              const newFavs = prev.filter(id => id !== songId);
-              localStorage.setItem('streamify-favorites', JSON.stringify(newFavs));
-              return newFavs;
+              newFavs = prev.filter(s => s._id !== song._id);
           } else {
-              if (isObject) {
-                  setLikedSongsData(ld => [...ld, songOrId]);
-              } else {
-                  // If we only have ID, try to find it in current lists
-                  const found = [...songs, ...trendingSongs, ...discoverResults].find(s => s._id === songId);
-                  if (found) setLikedSongsData(ld => [...ld, found]);
-              }
-              const newFavs = [...prev, songId];
-              localStorage.setItem('streamify-favorites', JSON.stringify(newFavs));
-              return newFavs;
+              newFavs = [...prev, song];
           }
+          localStorage.setItem('streamify-favorites', JSON.stringify(newFavs));
+          return newFavs;
       });
   };
 
@@ -190,30 +180,19 @@ function App() {
          }));
          setTrendingSongs(hits);
          
-      const storedFavs = [...new Set(JSON.parse(localStorage.getItem('streamify-favorites') || '[]'))];
-      const storedData = JSON.parse(localStorage.getItem('streamify-liked-data') || '[]');
+      // Clean up favorites and merge with online data
+      const localFavs = JSON.parse(localStorage.getItem('streamify-favorites') || '[]');
+      setFavorites(localFavs);
       
-      const syncedData = [...storedData];
-      storedFavs.forEach(id => {
-          if (!syncedData.find(s => s._id === id)) {
-              const match = [...rawSongs, ...hits].find(s => s._id === id);
-              if (match) syncedData.push(match);
-          }
-      });
-      // Final unique sweep
-      const finalUnique = syncedData.filter((s, idx, self) => 
-          favorites.includes(s._id) && self.findIndex(t => t._id === s._id) === idx
-      );
-      setLikedSongsData(finalUnique);
-      }
       // Final sync for user profile data (Liked Songs & Playlists)
       if (user && (user.id || user._id)) {
           try {
               const profileRes = await axios.get(`${API_URL}/user/${user.id || user._id}`);
               if (profileRes.data?.success) {
                   const dbUser = profileRes.data.user;
-                  if (dbUser.favorites) setFavorites(dbUser.favorites);
-                  if (dbUser.playlists) setPlaylists(dbUser.playlists);
+                  // If DB has data, prefer cloud data over local to ensure consistency across devices
+                  if (dbUser.favorites && dbUser.favorites.length > 0) setFavorites(dbUser.favorites);
+                  if (dbUser.playlists && dbUser.playlists.length > 0) setPlaylists(dbUser.playlists);
               }
           } catch (pErr) { console.warn("Failed to fetch online profile, using local stash."); }
           finally { setInitialSyncDone(true); }
@@ -927,8 +906,8 @@ function App() {
                                 item={song} 
                                 type="music" 
                                 onClick={setCurrentSong} 
-                                isLiked={favorites.includes(song._id)}
-                                onLike={() => toggleLike(song._id)}
+                                isLiked={favorites.some(s => s._id === song._id)}
+                                onLike={() => toggleLike(song)}
                                 playlists={playlists}
                                 onAddToPlaylist={addToPlaylist}
                                 onLongPress={setContextMenuSong}
@@ -1034,7 +1013,7 @@ function App() {
                                     {selectedPlaylistId === 'liked' ? 'Liked Songs' : (selectedPlaylistId === 'local' ? 'Local Files' : playlists.find(p => p.id === selectedPlaylistId)?.name)}
                                 </h1>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', fontWeight: 600, flexWrap: 'wrap' }}>
-                                    <span style={{ color: 'white' }}>{user?.email?.split('@')[0]}</span>
+                                    <span style={{ color: 'white', fontWeight: 700 }}>{user?.email?.split('@')[0] || 'User'}</span>
                                     <span style={{ opacity: 0.5 }}>•</span>
                                     <span style={{ color: 'var(--text-muted)' }}>{
                                         selectedPlaylistId === 'liked' ? `${favorites.length} songs` : (selectedPlaylistId === 'local' ? `${localDriveMedia.length} tracks` : `${playlists.find(p => p.id === selectedPlaylistId)?.songs?.length || 0} songs`)
@@ -1065,7 +1044,7 @@ function App() {
                             <div style={{ width: '80px', textAlign: 'right' }}><History size={16} /></div>
                         </div>
                         
-                        {(selectedPlaylistId === 'liked' ? likedSongsData : (selectedPlaylistId === 'local' ? localDriveMedia : (playlists.find(p => p.id === selectedPlaylistId)?.songs || []))).map((song, i) => (
+                        {(selectedPlaylistId === 'liked' ? favorites : (selectedPlaylistId === 'local' ? localDriveMedia : (playlists.find(p => p.id === selectedPlaylistId)?.songs || []))).map((song, i) => (
                             <div key={`${song._id}-${i}`} className="song-row" onClick={() => setCurrentSong(song)} style={{ display: 'flex', padding: '0.6rem 1rem', alignItems: 'center', cursor: 'pointer', borderRadius: '4px' }}>
                                 <div style={{ width: '40px', color: currentSong?._id === song._id ? 'var(--primary)' : 'var(--text-muted)' }}>{i + 1}</div>
                                 <div style={{ flex: 1, display: 'flex', gap: '1rem', alignItems: 'center' }}>
@@ -1176,7 +1155,7 @@ function App() {
                                     item={song} 
                                     type="music" 
                                     onClick={setCurrentSong} 
-                                    isLiked={favorites.includes(song._id)}
+                                    isLiked={favorites.some(s => s._id === song._id)}
                                     onLike={() => toggleLike(song)}
                                     onLongPress={setContextMenuSong}
                                 />
@@ -1292,7 +1271,7 @@ function App() {
                          onClick={() => setCurrentSong(song)}
                     >
                         <div style={{ color: currentSong?._id === song._id ? 'var(--primary)' : 'var(--text-muted)' }}>
-                            {currentSong?._id === song._id ? 'â–¶' : i + 1}
+                            {currentSong?._id === song._id ? '▶' : i + 1}
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                             <img src={song.image} style={{ width: '40px', height: '40px', borderRadius: '6px', objectFit: 'cover' }} />
@@ -1315,10 +1294,10 @@ function App() {
                                 <Music size={18} />
                             </button>
                             <button 
-                                onClick={(e) => { e.stopPropagation(); toggleLike(song._id); }}
-                                style={{ background: 'none', border: 'none', color: favorites.includes(song._id) ? 'var(--secondary)' : 'var(--text-muted)', cursor: 'pointer' }}
+                                onClick={(e) => { e.stopPropagation(); toggleLike(song); }}
+                                style={{ background: 'none', border: 'none', color: favorites.some(s => s._id === song._id) ? 'var(--secondary)' : 'var(--text-muted)', cursor: 'pointer' }}
                             >
-                                <Heart size={18} fill={favorites.includes(song._id) ? 'currentColor' : 'none'} />
+                                <Heart size={18} fill={favorites.some(s => s._id === song._id) ? 'currentColor' : 'none'} />
                             </button>
                             <div className="control-btn play" style={{ width: '32px', height: '32px', display: 'inline-flex', background: currentSong?._id === song._id ? 'white' : 'var(--surface-hover)' }}>
                                 <Play size={16} fill="currentColor" />
@@ -1451,8 +1430,8 @@ function App() {
                    </button>
 
                    <button className="sheet-item" onClick={() => { toggleLike(contextMenuSong); setContextMenuSong(null); setContextMenuShowPlaylists(false); }}>
-                       <Heart size={22} fill={favorites.includes(contextMenuSong._id) ? "#818cf8" : "none"} color={favorites.includes(contextMenuSong._id) ? "#818cf8" : "white"} />
-                       <span>{favorites.includes(contextMenuSong._id) ? 'Liked ✓' : 'Like'}</span>
+                       <Heart size={22} fill={favorites.some(s => s._id === contextMenuSong._id) ? "#818cf8" : "none"} color={favorites.some(s => s._id === contextMenuSong._id) ? "#818cf8" : "white"} />
+                       <span>{favorites.some(s => s._id === contextMenuSong._id) ? 'Liked ✓' : 'Like'}</span>
                    </button>
 
                    {/* Add to Playlist */}

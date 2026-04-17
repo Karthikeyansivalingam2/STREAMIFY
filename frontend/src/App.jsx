@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Search, Music, Film, Plus, Play, HardDrive, Heart, Camera, User, LogOut, Settings, History, X } from 'lucide-react';
+import { Search, Music, Film, Plus, Play, HardDrive, Heart, Camera, User, LogOut, Settings, History, X, Download, ListMusic, ChevronRight } from 'lucide-react';
 
 import Sidebar from './components/Sidebar';
 import MediaCard from './components/MediaCard';
@@ -59,6 +59,8 @@ function App() {
   const [savedAccounts, setSavedAccounts] = useState(() => JSON.parse(localStorage.getItem('streamify-accounts') || '[]'));
 
   const [likedSongsData, setLikedSongsData] = useState(() => JSON.parse(localStorage.getItem('streamify-liked-data') || '[]'));
+  const [contextMenuSong, setContextMenuSong] = useState(null);
+  const [contextMenuShowPlaylists, setContextMenuShowPlaylists] = useState(false);
 
   const toggleLike = (songOrId) => {
       const isObject = typeof songOrId === 'object' && songOrId !== null;
@@ -721,7 +723,7 @@ function App() {
       />
       
       <main className="main-content">
-        <header className="search-container" style={{ display: activeTab === 'discover' ? 'none' : 'flex' }}>
+        <header className="search-container" style={{ display: (activeTab === 'search' || activeTab === 'discover') ? 'none' : 'flex' }}>
           <div className="search-wrapper">
               <Search size={18} className="search-icon" />
               <input 
@@ -811,10 +813,8 @@ function App() {
                                    item={song} 
                                    type="music" 
                                    onClick={setCurrentSong} 
-                                   isLiked={favorites.includes(song._id)}
-                                   onLike={() => toggleLike(song)}
-                                   playlists={playlists}
                                    onAddToPlaylist={addToPlaylist}
+                                   onLongPress={setContextMenuSong}
                                />
                             ))}
                          </div>
@@ -850,6 +850,7 @@ function App() {
                         onClick={setCurrentSong} 
                         isLiked={favorites.includes(song._id)}
                         onLike={() => toggleLike(song)}
+                        onLongPress={setContextMenuSong}
                     />
                   ))}
                 </div>
@@ -865,6 +866,7 @@ function App() {
                         onLike={() => toggleLike(song)}
                         playlists={playlists}
                         onAddToPlaylist={addToPlaylist}
+                        onLongPress={setContextMenuSong}
                     />
                   ))}
                 </div>
@@ -893,6 +895,7 @@ function App() {
                                 onLike={() => toggleLike(song._id)}
                                 playlists={playlists}
                                 onAddToPlaylist={addToPlaylist}
+                                onLongPress={setContextMenuSong}
                             />
                         ))}
                     </div>
@@ -907,7 +910,7 @@ function App() {
                   </div>
                   <div className="media-grid">
                     {filteredMovies.slice(0, 4).map(movie => (
-                      <MediaCard key={movie._id} item={movie} type="movie" onClick={setPlayingVideo} />
+                      <MediaCard key={movie._id} item={movie} type="movie" onClick={setPlayingVideo} onLongPress={null} />
                     ))}
                   </div>
                 </section>
@@ -1046,9 +1049,9 @@ function App() {
           </section>
         )}
 
-        {activeTab === 'discover' && (
-          <section className="search-page-sp" style={{ paddingBottom: '160px' }}>
-            <div className="top-nav-bar" style={{ padding: '1.5rem 1rem 1rem' }}>
+        {(activeTab === 'search') && (
+          <section className="search-page-sp" style={{ paddingBottom: '160px', flex: 1, minHeight: '80vh' }}>
+            <div className="top-nav-bar" style={{ padding: '1.5rem 1rem 1rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <div 
                     className="profile-icon" 
                     style={{ 
@@ -1139,6 +1142,7 @@ function App() {
                                     onClick={setCurrentSong} 
                                     isLiked={favorites.includes(song._id)}
                                     onLike={() => toggleLike(song)}
+                                    onLongPress={setContextMenuSong}
                                 />
                             ))
                         ) : isDiscovering ? (
@@ -1341,49 +1345,14 @@ function App() {
 
             <div className="media-grid">
               {filteredMovies.map(movie => (
-                <MediaCard key={movie._id} item={movie} type="movie" onClick={setPlayingVideo} />
+                <MediaCard key={movie._id} item={movie} type="movie" onClick={setPlayingVideo} onLongPress={null} />
               ))}
             </div>
           </section>
         )}
 
         {/* Library Hub (Primarily for Mobile) */}
-        {activeTab === 'library' && (
-          <section className="mobile-library-view">
-             <div className="top-nav-bar">
-                 <h1 className="page-title">Your Library</h1>
-             </div>
-             <div className="category-grid" style={{ marginBottom: '2rem' }}>
-                 <div className="category-card" onClick={() => { setSelectedPlaylistId('liked'); setActiveTab('playlist'); }} style={{ background: 'linear-gradient(135deg, #450af5, #c4efd9)', height: '120px' }}>
-                     <span>Liked Songs</span>
-                     <Heart fill="white" size={40} style={{ position: 'absolute', bottom: 10, right: 10, opacity: 0.3 }} />
-                 </div>
-                 <div className="category-card" onClick={() => { setSelectedPlaylistId('local'); setActiveTab('playlist'); }} style={{ background: 'linear-gradient(135deg, #ff416c, #ff4b2b)', height: '120px' }}>
-                     <span>Local Files</span>
-                     <HardDrive size={40} style={{ position: 'absolute', bottom: 10, right: 10, opacity: 0.3 }} />
-                 </div>
-             </div>
-             
-             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-                 <h2 className="section-heading" style={{ margin: 0 }}>Playlists</h2>
-                 <button onClick={createPlaylist} style={{ background: 'none', border: 'none', color: 'var(--primary)', fontWeight: 600 }}>Create New</button>
-             </div>
-             
-             <div className="media-grid">
-                 {playlists.map(p => (
-                     <div key={p.id} className="media-card" onClick={() => { setSelectedPlaylistId(p.id); setActiveTab('playlist'); }}>
-                         <div className="card-img-container" style={{ background: 'var(--surface-hover)', display: 'flex', placeItems: 'center' }}>
-                             <Music size={48} color="var(--primary)" style={{ margin: 'auto' }} />
-                         </div>
-                         <div className="card-content">
-                             <div className="card-title">{p.name}</div>
-                             <div className="card-subtitle">{p.songs.length} songs</div>
-                         </div>
-                     </div>
-                 ))}
-             </div>
-          </section>
-        )}
+        {/* Mobile Library Hub Integrated into main Library view above */}
 
         {loading && (
           <div style={{ display: 'flex', justifyContent: 'center', padding: '5rem', position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 10000 }}>
@@ -1423,6 +1392,94 @@ function App() {
         favorites={favorites}
       />
 
+      {/* Global Track Options Menu (Spotify Style) */}
+      {contextMenuSong && (
+        <div className="fs-menu-overlay" onClick={() => { setContextMenuSong(null); setContextMenuShowPlaylists(false); }} style={{ zIndex: 20000 }}>
+           <div className="fs-menu-sheet" onClick={e => e.stopPropagation()}>
+               <div className="sheet-handle"></div>
+               <div className="sheet-header">
+                   <img src={contextMenuSong.image} alt="Art" />
+                   <div className="sheet-meta">
+                       <h3>{contextMenuSong.title}</h3>
+                       <p>{contextMenuSong.artist}</p>
+                   </div>
+               </div>
+
+               <div className="sheet-actions">
+                   <button className="sheet-item" onClick={() => { setCurrentSong(contextMenuSong); setContextMenuSong(null); setContextMenuShowPlaylists(false); }}>
+                       <Play size={22} /> <span>Play Now</span>
+                   </button>
+
+                   <button className="sheet-item" onClick={() => { addToQueue(contextMenuSong); setContextMenuSong(null); setContextMenuShowPlaylists(false); }}>
+                       <Plus size={22} /> <span>Add to Queue</span>
+                   </button>
+
+                   <button className="sheet-item" onClick={() => { toggleLike(contextMenuSong); setContextMenuSong(null); setContextMenuShowPlaylists(false); }}>
+                       <Heart size={22} fill={favorites.includes(contextMenuSong._id) ? "#818cf8" : "none"} color={favorites.includes(contextMenuSong._id) ? "#818cf8" : "white"} />
+                       <span>{favorites.includes(contextMenuSong._id) ? 'Liked ✓' : 'Like'}</span>
+                   </button>
+
+                   {/* Add to Playlist */}
+                   <button className="sheet-item" onClick={() => setContextMenuShowPlaylists(!contextMenuShowPlaylists)}>
+                       <ListMusic size={22} />
+                       <span>Add to Playlist</span>
+                       <ChevronRight size={18} style={{ marginLeft: 'auto', opacity: 0.5, transform: contextMenuShowPlaylists ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s' }} />
+                   </button>
+
+                   {/* Inline Playlist Picker */}
+                   {contextMenuShowPlaylists && (
+                       <div className="sheet-playlist-picker">
+                           {playlists.length === 0 ? (
+                               <div className="sheet-empty-hint">
+                                   No playlists yet.<br/>Create one in the Library tab.
+                               </div>
+                           ) : (
+                               playlists.map(p => (
+                                   <button key={p.id} className="sheet-playlist-item"
+                                       onClick={() => {
+                                           addToPlaylist(p.id, contextMenuSong);
+                                           setContextMenuSong(null);
+                                           setContextMenuShowPlaylists(false);
+                                       }}
+                                   >
+                                       <div className="sheet-playlist-icon">
+                                           <Music size={16} color="var(--primary)" />
+                                       </div>
+                                       <div>
+                                           <div className="sheet-playlist-name">{p.name}</div>
+                                           <div className="sheet-playlist-count">{p.songs?.length || 0} songs</div>
+                                       </div>
+                                   </button>
+                               ))
+                           )}
+                       </div>
+                   )}
+
+                   {/* Download */}
+                   <button className="sheet-item" onClick={() => {
+                       const a = document.createElement('a');
+                       a.href = contextMenuSong.url;
+                       a.download = `${contextMenuSong.title} - ${contextMenuSong.artist}.mp3`;
+                       a.target = '_blank';
+                       document.body.appendChild(a);
+                       a.click();
+                       document.body.removeChild(a);
+                       setContextMenuSong(null);
+                       setContextMenuShowPlaylists(false);
+                   }}>
+                       <Download size={22} /> <span>Download Song</span>
+                   </button>
+
+                   <div className="sheet-divider"></div>
+
+                   <button className="sheet-item" onClick={() => { setContextMenuSong(null); setContextMenuShowPlaylists(false); }} style={{ color: 'var(--text-muted)' }}>
+                       <X size={22} /> <span>Close</span>
+                   </button>
+               </div>
+           </div>
+        </div>
+      )}
+
       <VideoModal 
         video={playingVideo} 
         onClose={() => setPlayingVideo(null)} 
@@ -1434,7 +1491,7 @@ function App() {
               <Music size={24} />
               <span>Home</span>
           </div>
-          <div className={`mobile-nav-item ${activeTab === 'search' || activeTab === 'discover' ? 'active' : ''}`} onClick={() => { setActiveTab('search'); setActiveSubView(null); }}>
+          <div className={`mobile-nav-item ${activeTab === 'search' ? 'active' : ''}`} onClick={() => { setActiveTab('search'); setActiveSubView(null); }}>
               <Search size={24} />
               <span>Search</span>
           </div>

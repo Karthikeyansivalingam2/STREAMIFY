@@ -5,7 +5,7 @@ import { Home, Music, Film, Plus, Settings, HardDrive, Heart, Search } from 'luc
 const Sidebar = ({ activeTab, setActiveTab, playlists, setSelectedPlaylistId, selectedPlaylistId }) => {
   const menuItems = [
     { id: 'home', icon: <Home size={20} />, label: 'Home' },
-    { id: 'discover', icon: <Search size={20} />, label: 'Search' },
+    { id: 'search', icon: <Search size={20} />, label: 'Search' },
     { id: 'library', icon: <Plus size={20} />, label: 'Your Library' },
   ];
 

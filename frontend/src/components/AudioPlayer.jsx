@@ -397,34 +397,7 @@ const AudioPlayer = ({ currentSong, songs, onNext, onPrev, isShuffle, setIsShuff
             .fs-main-title { font-size: 1.5rem; }
         }
 
-        /* Options Menu Sheet */
-        .fs-menu-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); z-index: 20000; display: flex; align-items: flex-end; animation: fadeIn 0.3s ease; }
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-
-        .fs-menu-sheet { 
-            width: 100%; background: #282828; border-radius: 20px 20px 0 0; 
-            padding: 1.5rem; display: flex; flex-direction: column; gap: 1.5rem;
-            animation: slideUp 0.4s cubic-bezier(0,0,0.2,1);
-            max-height: 85vh; overflow-y: auto;
-        }
-        @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
-
-        .sheet-handle { width: 40px; height: 4px; background: rgba(255,255,255,0.1); border-radius: 2px; align-self: center; margin-bottom: -0.5rem; }
-        
-        .sheet-header { display: flex; align-items: center; gap: 1rem; padding-bottom: 1rem; border-bottom: 1px solid rgba(255,255,255,0.05); }
-        .sheet-header img { width: 50px; height: 50px; border-radius: 4px; object-fit: cover; }
-        .sheet-meta h3 { margin: 0; font-size: 1rem; font-weight: 700; color: white; }
-        .sheet-meta p { margin: 0.2rem 0 0; font-size: 0.85rem; color: #999; }
-
-        .sheet-actions { display: flex; flex-direction: column; gap: 0.25rem; }
-        .sheet-item { 
-            display: flex; align-items: center; gap: 1rem; padding: 1rem; 
-            background: none; border: none; color: white; cursor: pointer;
-            border-radius: 8px; transition: 0.2s; font-size: 0.95rem; font-weight: 500;
-        }
-        .sheet-item:hover { background: rgba(255,255,255,0.05); }
-        .sheet-item svg { opacity: 0.8; }
-        .sheet-divider { height: 1px; background: rgba(255,255,255,0.05); margin: 0.5rem 0; }
+        /* Global Menu styles moved to index.css */
 
         .sheet-close { 
             background: none; border: none; color: white; font-weight: 700; 

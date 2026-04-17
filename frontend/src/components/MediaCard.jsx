@@ -1,11 +1,51 @@
 import React, { useState } from 'react';
 import { Play, Heart, MoreVertical, Plus } from 'lucide-react';
 
-const MediaCard = ({ item, type, onClick, isLiked, onLike, playlists = [], onAddToPlaylist }) => {
+const MediaCard = ({ item, type, onClick, isLiked, onLike, playlists = [], onAddToPlaylist, onLongPress }) => {
   const [showMenu, setShowMenu] = useState(false);
+  const touchTimer = React.useRef(null);
+  const [isLongPress, setIsLongPress] = useState(false);
+
+  const handleTouchStart = (e) => {
+    if (type !== 'music') return;
+    setIsLongPress(false);
+    touchTimer.current = setTimeout(() => {
+        setIsLongPress(true);
+        if (onLongPress) onLongPress(item);
+        // Vibrate if supported
+        if (navigator.vibrate) navigator.vibrate(50);
+    }, 600);
+  };
+
+  const handleTouchEnd = (e) => {
+    if (touchTimer.current) {
+        clearTimeout(touchTimer.current);
+    }
+  };
+
+  const handleClick = (e) => {
+    // If it was a long press, don't trigger normal click
+    if (isLongPress) {
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+    }
+    onClick(item);
+  };
 
   return (
-    <div className="media-card" onClick={() => onClick(item)}>
+    <div 
+        className="media-card" 
+        onClick={handleClick}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+        onContextMenu={(e) => {
+            if (type === 'music') {
+                e.preventDefault();
+                if (onLongPress) onLongPress(item);
+            }
+        }}
+    >
       <div className="card-img-container">
         <img 
           src={type === 'music' ? item.image : item.thumbnail} 
@@ -20,43 +60,13 @@ const MediaCard = ({ item, type, onClick, isLiked, onLike, playlists = [], onAdd
         </div>
         
         {type === 'music' && (
-           <>
-              <button 
-                  className="like-btn"
-                  onClick={(e) => { e.stopPropagation(); onLike(item); }}
-                  style={{ position: 'absolute', top: '10px', right: '10px', background: 'rgba(0,0,0,0.5)', border: 'none', borderRadius: '50%', padding: '8px', cursor: 'pointer', zIndex: 10, display: 'flex', color: isLiked ? 'var(--secondary)' : 'white' }}
-              >
-                  <Heart size={18} fill={isLiked ? 'currentColor' : 'none'} />
-              </button>
-
-              <button 
-                  className="menu-trigger"
-                  onClick={(e) => { e.stopPropagation(); setShowMenu(!showMenu); }}
-                  style={{ position: 'absolute', bottom: '10px', right: '10px', background: 'rgba(0,0,0,0.5)', border: 'none', borderRadius: '50%', padding: '6px', cursor: 'pointer', zIndex: 11, display: 'flex', color: 'white', transition: 'transform 0.2s' }}
-                  onMouseDown={(e) => e.currentTarget.style.transform = 'scale(0.85)'}
-                  onMouseUp={(e) => e.currentTarget.style.transform = 'scale(1)'}
-                  onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
-              >
-                  <MoreVertical size={16} />
-              </button>
-
-              {showMenu && (
-                  <div className="glass card-menu" onClick={(e) => e.stopPropagation()} style={{ position: 'absolute', bottom: '45px', right: '10px', zIndex: 100, width: '180px', padding: '0.5rem', borderRadius: '12px', boxShadow: '0 10px 25px rgba(0,0,0,0.5)' }}>
-                      <p style={{ margin: '0 0 0.5rem 0.5rem', fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>Add to Playlist</p>
-                      {playlists.length === 0 && <div style={{ fontSize: '0.8rem', padding: '0.5rem', opacity: 0.5 }}>No playlists yet</div>}
-                      {playlists.map(p => (
-                          <button 
-                              key={p.id} 
-                              className="menu-item" 
-                              onClick={() => { onAddToPlaylist(p.id, item); setShowMenu(false); }}
-                              style={{ width: '100%', textAlign: 'left', background: 'none', border: 'none', color: 'white', padding: '0.6rem', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem' }}
-                          >
-                              <Plus size={14} /> {p.name}
-                          </button>
-                      ))}
-                  </div>
-              )}
-           </>
+           <button 
+               className="like-btn"
+               onClick={(e) => { e.stopPropagation(); onLike(item); }}
+               style={{ position: 'absolute', top: '10px', right: '10px', background: 'rgba(0,0,0,0.5)', border: 'none', borderRadius: '50%', padding: '8px', cursor: 'pointer', zIndex: 10, display: 'flex', color: isLiked ? 'var(--secondary)' : 'white' }}
+           >
+               <Heart size={18} fill={isLiked ? 'currentColor' : 'none'} />
+           </button>
         )}
       </div>
       <div className="card-content">

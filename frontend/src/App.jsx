@@ -40,6 +40,7 @@ function App() {
   const [discoverResults, setDiscoverResults] = useState([]);
   const [isDiscovering, setIsDiscovering] = useState(false);
   const [trendingSongs, setTrendingSongs] = useState([]);
+  const [initialSyncDone, setInitialSyncDone] = useState(false);
 
 
   const [isAuthenticated, setIsAuthenticated] = useState(() => localStorage.getItem('streamify-auth') === 'true');
@@ -90,10 +91,10 @@ function App() {
 
   useEffect(() => {
     localStorage.setItem('streamify-favorites', JSON.stringify(favorites));
-    if (user && (user.id || user._id)) {
+    if (initialSyncDone && user && (user.id || user._id)) {
         axios.put(`${API_URL}/user/${user.id || user._id}/favorites`, { favorites }).catch(err => console.error("Error syncing favorites:", err));
     }
-  }, [favorites, user]);
+  }, [favorites, user, initialSyncDone]);
 
   useEffect(() => {
     localStorage.setItem('streamify-liked-data', JSON.stringify(likedSongsData));
@@ -101,10 +102,10 @@ function App() {
 
   useEffect(() => {
     localStorage.setItem('streamify-playlists', JSON.stringify(playlists));
-    if (user && (user.id || user._id)) {
+    if (initialSyncDone && user && (user.id || user._id)) {
         axios.put(`${API_URL}/user/${user.id || user._id}/playlists`, { playlists }).catch(err => console.error("Error syncing playlists:", err));
     }
-  }, [playlists, user]);
+  }, [playlists, user, initialSyncDone]);
 
   useEffect(() => {
     localStorage.setItem('streamify-recents', JSON.stringify(recentlyPlayed));
@@ -205,6 +206,21 @@ function App() {
       );
       setLikedSongsData(finalUnique);
       }
+      // Final sync for user profile data (Liked Songs & Playlists)
+      if (user && (user.id || user._id)) {
+          try {
+              const profileRes = await axios.get(`${API_URL}/user/${user.id || user._id}`);
+              if (profileRes.data?.success) {
+                  const dbUser = profileRes.data.user;
+                  if (dbUser.favorites) setFavorites(dbUser.favorites);
+                  if (dbUser.playlists) setPlaylists(dbUser.playlists);
+              }
+          } catch (pErr) { console.warn("Failed to fetch online profile, using local stash."); }
+          finally { setInitialSyncDone(true); }
+      } else {
+          setInitialSyncDone(true);
+      }
+
     } catch (err) {
       console.error('Error fetching data:', err);
       setSongs([]);

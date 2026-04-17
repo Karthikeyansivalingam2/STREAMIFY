@@ -175,6 +175,24 @@ app.post('/api/auth/login', async (req, res) => {
 });
 
 // --- USER DATA SYNC ROUTES ---
+app.get('/api/user/:id', async (req, res) => {
+    try {
+        const user = await User.findById(req.params.id);
+        if (!user) return res.status(404).json({ message: 'User not found' });
+        res.json({ 
+            success: true, 
+            user: { 
+                id: user._id, 
+                email: user.email, 
+                favorites: user.favorites || [], 
+                playlists: user.playlists || [] 
+            } 
+        });
+    } catch (err) {
+        res.status(500).json({ message: 'Failed to fetch user data' });
+    }
+});
+
 app.put('/api/user/:id/playlists', async (req, res) => {
     try {
         const { id } = req.params;

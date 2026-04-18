@@ -16,11 +16,14 @@ const User = require('./models/User');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Create uploads directory if it doesn't exist
-const uploadDir = path.join(__dirname, 'uploads');
-if (!fs.existsSync(uploadDir)){
+// Create uploads directory if it doesn't exist (Skip/Use /tmp for Vercel)
+const isVercel = process.env.VERCEL === '1';
+const uploadDir = isVercel ? '/tmp' : path.join(__dirname, 'uploads');
+
+if (!isVercel && !fs.existsSync(uploadDir)){
     fs.mkdirSync(uploadDir);
 }
+
 
 // Middleware
 const corsOptions = {

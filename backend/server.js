@@ -25,28 +25,28 @@ if (!fs.existsSync(uploadDir)){
 // Middleware
 const corsOptions = {
     origin: function (origin, callback) {
-        const allowedOrigins = [
-            'http://localhost:5173',
-            'http://localhost:5000',
-            'https://streamify-neon.vercel.app',
-            'https://streamify-media.vercel.app'
-        ];
-        
-        // Allow all vercel subdomains and local development
-        if (!origin || allowedOrigins.indexOf(origin) !== -1 || origin.endsWith('.vercel.app') || origin.includes('vercel.app')) {
-            callback(null, true);
-        } else {
-            console.log("Blocked by CORS:", origin);
-            callback(new Error('Not allowed by CORS'));
-        }
+        // Allow all origins for development to avoid issues with mobile/expo
+        callback(null, true);
     },
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
     credentials: true,
     optionsSuccessStatus: 200
 };
 app.use(cors(corsOptions));
+
 app.use(express.json());
 app.use('/uploads', express.static(uploadDir));
+
+// Ensure DB connection for every request (critical for Vercel)
+app.use(async (req, res, next) => {
+  try {
+    await connectToDatabase();
+    next();
+  } catch (err) {
+    res.status(500).json({ error: "Database connection failed" });
+  }
+});
+
 
 // Health Check for Render Deployment
 app.get('/api/health', (req, res) => {
@@ -125,9 +125,23 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
 // MongoDB Connection
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/Watchify';
 
-mongoose.connect(MONGO_URI)
-  .then(() => console.log('Connected to MongoDB Atlas: Watchify'))
-  .catch((err) => console.error('MongoDB connection error:', err));
+let cachedDb = null;
+
+async function connectToDatabase() {
+  if (cachedDb) return cachedDb;
+  
+  const opts = {
+    serverSelectionTimeoutMS: 5000, // Timeout after 5s instead of hanging
+  };
+
+  cachedDb = await mongoose.connect(MONGO_URI, opts);
+  console.log('Connected to MongoDB Atlas');
+  return cachedDb;
+}
+
+// Initial connection
+connectToDatabase().catch(err => console.error('MongoDB connection error:', err));
+
 
 const Playlist = require('./models/Playlist');
 const Favorite = require('./models/Favorite');
@@ -289,6 +303,15 @@ app.get('/', (req, res) => {
 });
 
 // Server Start
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
-});
+app.use('/uploads', express.static('uploads'));
+app.use("/api/auth", require("./routes/auth"));
+
+// Server Start
+if (process.env.NODE_ENV !== 'production') {
+  app.listen(PORT, () => {
+    console.log(`Server is running on port ${PORT}`);
+  });
+}
+
+module.exports = app;
+

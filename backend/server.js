@@ -214,7 +214,11 @@ app.get('/api/user/:id', async (req, res) => {
                 id: user._id, 
                 email: user.email, 
                 favorites: favorites.map(f => f.songData) || [], 
-                playlists: playlists || [] 
+                playlists: playlists.map(p => ({
+                    id: p.clientId || p._id.toString(),
+                    name: p.name,
+                    songs: p.songs || []
+                })) || [] 
             } 
         });
     } catch (err) {
@@ -234,7 +238,8 @@ app.put('/api/user/:id/playlists', async (req, res) => {
             const docs = playlists.map(p => ({
                 userId: id,
                 name: p.name,
-                songs: p.songs
+                songs: p.songs,
+                clientId: p.id  // preserve frontend id
             }));
             await Playlist.insertMany(docs);
         }

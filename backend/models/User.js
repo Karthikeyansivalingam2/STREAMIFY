@@ -8,9 +8,13 @@ const userSchema = new mongoose.Schema({
     },
     password: {
         type: String,
-        required: true,
+        required: false,
     },
+    name: String,
+    avatar: String,
+    googleId: String,
     favorites: [], // Store full song objects for cross-device consistency
+
     playlists: [{
         id: { type: String, required: true },
         name: { type: String, required: true },

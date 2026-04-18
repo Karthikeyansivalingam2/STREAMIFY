@@ -40,21 +40,25 @@ app.use(cors(corsOptions));
 app.use(express.json());
 app.use('/uploads', express.static(uploadDir));
 
-// Ensure DB connection for every request (critical for Vercel)
+// Health Check for Render/Vercel (NO DB REQUIRED)
+app.get('/api/health', (req, res) => {
+    res.json({ status: 'alive', database: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected' });
+});
+
+// Ensure DB connection for critical API routes
 app.use(async (req, res, next) => {
   try {
-    await connectToDatabase();
+    const isHealthCheck = req.path === '/api/health' || req.path === '/';
+    if (!isHealthCheck) {
+        await connectToDatabase();
+    }
     next();
   } catch (err) {
+    console.error("Critical DB error:", err);
     res.status(500).json({ error: "Database connection failed" });
   }
 });
 
-
-// Health Check for Render Deployment
-app.get('/api/health', (req, res) => {
-    res.json({ status: 'alive', database: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected' });
-});
 
 // Music Discovery Proxy - Triple Redundancy System
 app.get('/api/discover', async (req, res) => {

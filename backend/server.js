@@ -193,8 +193,10 @@ app.post('/api/auth/login', async (req, res) => {
             } 
         });
     } catch (err) {
-        res.status(500).json({ message: 'Login failed' });
+        console.error('Login error detail:', err);
+        res.status(500).json({ message: 'Login failed', error: err.message });
     }
+
 });
 
 // --- USER DATA SYNC ROUTES ---

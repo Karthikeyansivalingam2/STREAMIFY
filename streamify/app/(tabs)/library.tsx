@@ -43,7 +43,9 @@ export default function LibraryScreen() {
 
   const allPlaylists = [
     { id: 'liked', title: "Liked Songs", subtitle: `Playlist • ${favorites.length} songs`, icon: "heart", color: ["#450eff", "#8e86ff"], songs: favorites },
+    { id: 'local', title: "Local Files", subtitle: "Songs from your device", icon: "folder", color: ["#1db954", "#191414"], songs: [] },
     ...playlists.map(p => ({
+
         id: p.id,
         title: p.name,
         subtitle: `Playlist • ${p.songs?.length || 0} songs`,
@@ -112,9 +114,14 @@ export default function LibraryScreen() {
   };
 
   const openPlaylist = (item: any) => {
-    setView(item.title);
-    setSongs(item.songs || []);
+    if (item.id === 'local') {
+        fetchLocalFiles();
+    } else {
+        setView(item.title);
+        setSongs(item.songs || []);
+    }
   };
+
 
 
   if (view !== 'home') {
@@ -252,36 +259,18 @@ export default function LibraryScreen() {
             <Text style={styles.avatarText}>K</Text>
           </TouchableOpacity>
           <Text style={styles.title}>Your Library</Text>
-          <View style={styles.headerRight}>
-              <TouchableOpacity style={styles.headerIcon}>
-                <Ionicons name="search" size={24} color="#fff" />
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.headerIcon} onPress={handleCreatePlaylist}>
-                <Ionicons name="add" size={30} color="#fff" />
-              </TouchableOpacity>
-
-          </View>
+          <View style={{ width: 40 }} /> 
         </View>
 
-        {/* FILTERS */}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterScroll}>
-          {filters.map((filter, index) => (
-            <TouchableOpacity key={index} style={[styles.filterChip, index === 0 && styles.activeChip]}>
-              <Text style={[styles.filterText, index === 0 && styles.activeText]}>{filter}</Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-
         {/* LIST ACTIONS */}
+
         <View style={styles.listHeaderRow}>
             <View style={styles.sortRow}>
                 <Ionicons name="swap-vertical" size={16} color="#6c63ff" />
                 <Text style={styles.sortText}>Recents</Text>
             </View>
-            <TouchableOpacity onPress={fetchLocalFiles}>
-                <Ionicons name="grid-outline" size={18} color="#fff" />
-            </TouchableOpacity>
         </View>
+
 
         {/* PLAYLIST LIST - SPOTIFY STYLE */}
         <View style={styles.spotifyList}>
@@ -307,18 +296,8 @@ export default function LibraryScreen() {
               )}
             </TouchableOpacity>
           ))}
-          
-          {/* ARTISTS SECTION (CIRCULAR) */}
-          <Text style={styles.subSectionTitle}>Artists you follow</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.artistScroll}>
-              {['Sean Roldan', 'A.R. Rahman', 'Anirudh', 'Yuvan'].map((name, i) => (
-                  <TouchableOpacity key={i} style={styles.artistCard}>
-                      <Image source={{ uri: `https://ui-avatars.com/api/?name=${name}&background=6c63ff&color=fff` }} style={styles.artistImg} />
-                      <Text style={styles.artistName} numberOfLines={1}>{name}</Text>
-                  </TouchableOpacity>
-              ))}
-          </ScrollView>
         </View>
+
 
         <View style={{ height: 150 }} />
       </ScrollView>
@@ -405,7 +384,7 @@ const styles = StyleSheet.create({
   emptyState: { alignItems: 'center', marginTop: 80 },
   emptyText: { color: 'rgba(255,255,255,0.3)', fontSize: 16, marginTop: 15 },
   // CONTEXT MENU
-  menuText: { color: '#fff', fontSize: 16, fontWeight: '600', marginLeft: 16 },
+  // MODAL STYLES
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'center', alignItems: 'center', padding: 30 },
   modalCard: { width: '100%', backgroundColor: '#1c1c2e', borderRadius: 20, padding: 25, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
   modalTitle: { color: '#fff', fontSize: 20, fontWeight: '800', marginBottom: 20 },
@@ -414,6 +393,20 @@ const styles = StyleSheet.create({
   modalBtn: { paddingHorizontal: 20, paddingVertical: 10, marginLeft: 10 },
   modalBtnPrimary: { backgroundColor: '#6c63ff', paddingHorizontal: 25, paddingVertical: 10, borderRadius: 10, marginLeft: 10 },
   modalBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
-  modalBtnTextDim: { color: '#aaa', fontWeight: '600', fontSize: 14 }
+  modalBtnTextDim: { color: '#aaa', fontWeight: '600', fontSize: 14 },
+  // CONTEXT MENU STYLES
+  menuOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'flex-end' },
+  menuContent: { backgroundColor: '#181818', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24, paddingBottom: 40 },
+  menuHandle: { width: 32, height: 4, backgroundColor: '#333', borderRadius: 2, alignSelf: 'center', marginBottom: 24 },
+  menuHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 24, paddingBottom: 24, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#333' },
+  menuSongImg: { width: 56, height: 56, borderRadius: 4 },
+  menuSongTitle: { color: '#fff', fontSize: 18, fontWeight: '700' },
+  menuSongArtist: { color: '#aaa', fontSize: 14, marginTop: 4 },
+  menuList: {},
+  menuItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 16 },
+  menuText: { color: '#fff', fontSize: 16, fontWeight: '600', marginLeft: 16 }
 });
+
+
+
 

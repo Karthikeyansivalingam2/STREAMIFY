@@ -166,8 +166,10 @@ app.post('/api/auth/register', async (req, res) => {
         await user.save();
         res.status(201).json({ success: true, user: { id: user._id, email: user.email } });
     } catch (err) {
-        res.status(500).json({ message: 'Registration failed' });
+        console.error('Registration error detail:', err);
+        res.status(500).json({ message: 'Registration failed', error: err.message });
     }
+
 });
 
 app.post('/api/auth/login', async (req, res) => {
